@@ -6,18 +6,22 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.uber.org/dig"
 )
 
 type GoFramework struct {
-	ioc    *dig.Container
-	server *gin.Engine
+	ioc           *dig.Container
+	configuration *viper.Viper
+	server        *gin.Engine
 }
 
 func NewGoFramework() *GoFramework {
 	gf := &GoFramework{
-		ioc:    dig.New(),
-		server: gin.Default(),
+		ioc:           dig.New(),
+		configuration: initializeViper(),
+		server:        gin.Default(),
 	}
 
 	gf.ioc.Provide(initializeViper)
@@ -32,7 +36,7 @@ func NewGoFramework() *GoFramework {
 // VIPER
 func initializeViper() *viper.Viper {
 	v := viper.New()
-	v.AddConfigPath("../configs")
+	v.AddConfigPath("./configs")
 	v.SetConfigType("json")
 	v.SetConfigName(os.Getenv("env"))
 	if err := v.ReadInConfig(); err != nil {
@@ -41,8 +45,12 @@ func initializeViper() *viper.Viper {
 	return v
 }
 
+func (gf *GoFramework) GetConfig(key string) string {
+	return gf.configuration.GetString(key)
+}
+
 // DIG
-func (gf *GoFramework) AddProvide(constructor interface{}) error {
+func (gf *GoFramework) Register(constructor interface{}) error {
 	err := gf.ioc.Provide(constructor)
 	return err
 }
@@ -57,4 +65,9 @@ func (gf *GoFramework) RegisterController(controller interface{}) {
 
 func (gf *GoFramework) Start() error {
 	return gf.server.Run(":8081")
+}
+
+// mongo
+func (gf *GoFramework) RegisterDbMongo(opts *options.ClientOptions) {
+	gf.ioc.Provide(func() *mongo.Client { return newMongoClient(opts) })
 }
