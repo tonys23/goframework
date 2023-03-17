@@ -2,6 +2,7 @@ package goframework
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
@@ -13,6 +14,7 @@ func newMongoClient(opts *options.ClientOptions) *mongo.Client {
 	defer cancel()
 	client, err := mongo.Connect(ctx, opts)
 	if err != nil {
+		log.Fatalln("newMongoClient : " + err.Error())
 		panic(err)
 	}
 	return client

@@ -50,9 +50,11 @@ func (gf *GoFramework) GetConfig(key string) string {
 }
 
 // DIG
-func (gf *GoFramework) Register(constructor interface{}) error {
+func (gf *GoFramework) Register(constructor interface{}) {
 	err := gf.ioc.Provide(constructor)
-	return err
+	if err != nil {
+		log.Fatalln(err)
+	}
 }
 
 // GIN
@@ -68,6 +70,10 @@ func (gf *GoFramework) Start() error {
 }
 
 // mongo
-func (gf *GoFramework) RegisterDbMongo(opts *options.ClientOptions) {
-	gf.ioc.Provide(func() *mongo.Client { return newMongoClient(opts) })
+func (gf *GoFramework) RegisterDbMongo(host string, user string, pass string, database string) {
+	opts := options.Client().ApplyURI(host).SetAuth(options.Credential{Username: user, Password: pass})
+	err := gf.ioc.Provide(func() *mongo.Database { return (newMongoClient(opts).Database(database)) })
+	if err != nil {
+		log.Fatalln(err)
+	}
 }
