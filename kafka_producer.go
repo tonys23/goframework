@@ -1,8 +1,8 @@
 package goframework
 
 import (
-	"context"
 	"encoding/json"
+	"os"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/google/uuid"
@@ -25,14 +25,21 @@ type (
 	}
 )
 
-func NewKafkaProducer[T interface{}](kcm *kafka.ConfigMap,
+func NewKafkaProducer[T interface{}](k *GoKafka,
 	kcs *KafkaProducerSettings) Producer[T] {
 
-	CreateKafkaTopic(context.Background(), kcm, &TopicConfiguration{
-		Topic:             kcs.Topic,
-		NumPartitions:     kcs.NumPartitions,
-		ReplicationFactor: kcs.ReplicationFactor,
-	})
+	hostname, _ := os.Hostname()
+
+	kcm := &kafka.ConfigMap{
+		"bootstrap.servers": k.server,
+		"client.id":         hostname,
+		"acks":              "all"}
+
+	// CreateKafkaTopic(context.Background(), kcm, &TopicConfiguration{
+	// 	Topic:             kcs.Topic,
+	// 	NumPartitions:     kcs.NumPartitions,
+	// 	ReplicationFactor: kcs.ReplicationFactor,
+	// })
 
 	return &KafkaProducer[T]{
 		kcs: kcs,

@@ -4,7 +4,6 @@ import (
 	"log"
 	"os"
 
-	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -51,8 +50,15 @@ func (gf *GoFramework) GetConfig(key string) string {
 }
 
 // DIG
-func (gf *GoFramework) Register(constructor interface{}) {
+func (gf *GoFramework) RegisterRepository(constructor interface{}) {
 	err := gf.ioc.Provide(constructor)
+	if err != nil {
+		log.Fatalln(err)
+	}
+}
+
+func (gf *GoFramework) RegisterApplication(application interface{}) {
+	err := gf.ioc.Provide(application)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -79,8 +85,8 @@ func (gf *GoFramework) RegisterDbMongo(host string, user string, pass string, da
 	}
 }
 
-func (gf *GoFramework) RegisterKafka(server string) {
-	err := gf.ioc.Provide(func() *kafka.ConfigMap { return NewKafkaConfigMap(server) })
+func (gf *GoFramework) RegisterKafka(server string, groupId string) {
+	err := gf.ioc.Provide(func() *GoKafka { return NewKafkaConfigMap(server, groupId) })
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -93,12 +99,9 @@ func (gf *GoFramework) RegisterKafkaProducer(producer interface{}) {
 	}
 }
 
-func (gf *GoFramework) RegisterKafkaConsumer(consumer Consumer[interface{}], h ConsumerFunc[interface{}]) {
-	err := gf.ioc.Provide(consumer)
+func (gf *GoFramework) RegisterKafkaConsumer(consumer interface{}) {
+	err := gf.ioc.Invoke(consumer)
 	if err != nil {
 		log.Fatalln(err)
-		return
 	}
-
-	go consumer.HandleFn(h)
 }

@@ -81,7 +81,8 @@ func (r *MongoDbRepository[T]) GetFirst(
 	filter map[string]interface{}) *T {
 	var el T
 
-	filter["tenantId"] = ctx.(*gin.Context).Request.Header.Get("X-TENANT-ID")
+	// filter["tenantId"] = ctx.(*gin.Context).Request.Header.Get("X-TENANT-ID")
+
 	err := r.collection.FindOne(ctx, filter).Decode(&el)
 
 	if err == mongo.ErrNoDocuments {

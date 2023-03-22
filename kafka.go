@@ -2,6 +2,7 @@ package goframework
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
@@ -13,14 +14,63 @@ type (
 		NumPartitions     int
 		ReplicationFactor int
 	}
+
+	GoKafka struct {
+		server  string
+		groupId string
+	}
 )
 
-func NewKafkaConfigMap(server string) *kafka.ConfigMap {
-	return &kafka.ConfigMap{
-		"bootstrap.servers": server,
-		// "sasl.username":     v.GetString("username"),
-		// "sasl.password":     v.GetString("password"),
+func NewKafkaConfigMap(connectionString string, groupId string) *GoKafka {
+	return &GoKafka{
+		server:  connectionString,
+		groupId: groupId,
 	}
+}
+
+func (k *GoKafka) Consumer(topic string, fn ConsumerFunc) {
+	go func(topic string) {
+
+		kcs := &KafkaConsumerSettings{
+			Topic:           topic,
+			AutoOffsetReset: "earliest",
+			Retries:         5,
+		}
+
+		kc := &kafka.ConfigMap{
+			"bootstrap.servers": k.server,
+			"group.id":          k.groupId,
+			"auto.offset.reset": kcs.AutoOffsetReset}
+
+		// CreateKafkaTopic(context.Background(), kc, &TopicConfiguration{
+		// 	Topic:             kcs.Topic,
+		// 	NumPartitions:     kcs.NumPartitions,
+		// 	ReplicationFactor: kcs.ReplicationFactor,
+		// })
+
+		consumer, err := kafka.NewConsumer(kc)
+		if err != nil {
+			log.Fatalln(err.Error())
+			panic(err)
+		}
+
+		err = consumer.SubscribeTopics([]string{kcs.Topic}, nil)
+		if err != nil {
+			log.Fatalln(err.Error())
+			panic(err)
+		}
+
+		for {
+			msg, err := consumer.ReadMessage(-1)
+			if err != nil {
+				panic(err)
+			}
+
+			kafkaCallFnWithResilence(msg, kc, *kcs, fn)
+			consumer.CommitMessage(msg)
+		}
+
+	}(topic)
 }
 
 func NewKafkaAdminClient(cm *kafka.ConfigMap) *kafka.AdminClient {

@@ -2,7 +2,6 @@ package goframework
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
@@ -18,14 +17,21 @@ type (
 		Retries           uint16
 	}
 
-	KafkaConsumer[T interface{}] struct {
+	KafkaConsumer struct {
 		kcs *KafkaConsumerSettings
 		kcm *kafka.ConfigMap
+		fn  ConsumerFunc
+	}
+
+	KafkaContext struct {
+		Msg              *kafka.Message
+		RemainingRetries int
+		Faulted          bool
 	}
 )
 
-func NewKafkaConsumer[T interface{}](kcm *kafka.ConfigMap,
-	kcs *KafkaConsumerSettings) Consumer[T] {
+func NewKafkaConsumer(kcm *kafka.ConfigMap,
+	kcs *KafkaConsumerSettings, fn ConsumerFunc) Consumer {
 
 	CreateKafkaTopic(context.Background(), kcm, &TopicConfiguration{
 		Topic:             kcs.Topic,
@@ -36,14 +42,14 @@ func NewKafkaConsumer[T interface{}](kcm *kafka.ConfigMap,
 	cmt := *kcm
 	cmt.SetKey("group.id", kcs.GroupId)
 	cmt.SetKey("auto.offset.reset", kcs.AutoOffsetReset)
-	kc := &KafkaConsumer[T]{
+	kc := &KafkaConsumer{
 		kcs: kcs,
 		kcm: &cmt,
 	}
 	return kc
 }
 
-func (kc *KafkaConsumer[T]) HandleFn(fn ConsumerFunc[T]) {
+func (kc *KafkaConsumer) HandleFn() {
 	c, err := kafka.NewConsumer(kc.kcm)
 	if err != nil {
 		panic(err)
@@ -52,38 +58,36 @@ func (kc *KafkaConsumer[T]) HandleFn(fn ConsumerFunc[T]) {
 	defer c.Close()
 	defer func() {
 		if e := recover(); e != nil {
-			kc.HandleFn(fn)
+			kc.HandleFn()
 		}
 	}()
 	c.SubscribeTopics([]string{kc.kcs.Topic}, nil)
 	for {
+
 		msg, err := c.ReadMessage(-1)
 		if err != nil {
 			panic(err)
 		}
 
-		kafkaCallFnWithResilence(msg, kc.kcm, *kc.kcs, fn)
+		kafkaCallFnWithResilence(msg, kc.kcm, *kc.kcs, kc.fn)
 		c.CommitMessage(msg)
 	}
 }
 
-func kafkaCallFnWithResilence[T interface{}](msg *kafka.Message,
+func kafkaCallFnWithResilence(msg *kafka.Message,
 	kcm *kafka.ConfigMap,
 	kcs KafkaConsumerSettings,
-	fn ConsumerFunc[T]) {
+	fn ConsumerFunc) {
 
-	ctx := context.Background()
-	cctx := ConsumerContext{RemainingRetries: kcs.Retries, Faulted: kcs.Retries == 0}
-	var payload T
-	err := json.Unmarshal(msg.Value, &payload)
-	if err != nil {
-		kafkaSendToDlq(ctx, &kcs, kcm, msg)
-		return
-	}
+	cctx := &ConsumerContext{
+		Context:          context.Background(),
+		RemainingRetries: kcs.Retries,
+		Faulted:          kcs.Retries == 0,
+		Msg:              msg}
 
 	defer func() {
 		if e := recover(); e != nil {
-			err = e.(error)
+			err := e.(error)
 			fmt.Println(err.Error())
 			if kcs.Retries > 1 {
 				kcs.Retries--
@@ -91,15 +95,14 @@ func kafkaCallFnWithResilence[T interface{}](msg *kafka.Message,
 				return
 			}
 
-			kafkaSendToDlq(ctx, &kcs, kcm, msg)
+			kafkaSendToDlq(&kcs, kcm, msg)
 		}
 	}()
 
-	fn(ctx, cctx, payload)
+	fn(cctx)
 }
 
 func kafkaSendToDlq(
-	ctx context.Context,
 	kcs *KafkaConsumerSettings,
 	kcm *kafka.ConfigMap,
 	msg *kafka.Message) {
@@ -113,7 +116,7 @@ func kafkaSendToDlq(
 
 	tpn := *msg.TopicPartition.Topic + "_error"
 
-	CreateKafkaTopic(ctx, kcm, &TopicConfiguration{
+	CreateKafkaTopic(context.Background(), kcm, &TopicConfiguration{
 		Topic:             tpn,
 		NumPartitions:     1,
 		ReplicationFactor: 1,

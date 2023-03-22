@@ -2,20 +2,40 @@ package goframework
 
 import (
 	"context"
+	"time"
 
+	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/google/uuid"
 )
 
 type (
-	ConsumerFunc[T interface{}] func(context.Context, ConsumerContext, T)
-	ConsumerContext             struct {
+	ConsumerFunc    func(ctx *ConsumerContext)
+	ConsumerContext struct {
+		context.Context
 		RemainingRetries uint16
 		Faulted          bool
+		Msg              *kafka.Message
 	}
-	Consumer[T interface{}] interface {
-		HandleFn(fn ConsumerFunc[T])
+	Consumer interface {
+		HandleFn()
 	}
 	Producer[T interface{}] interface {
 		Publish(correlationId uuid.UUID, msgs ...*T) error
 	}
 )
+
+func (cc ConsumerContext) Deadline() (deadline time.Time, ok bool) {
+	return cc.Context.Deadline()
+}
+
+func (cc ConsumerContext) Done() <-chan struct{} {
+	return cc.Context.Done()
+}
+
+func (cc ConsumerContext) Err() error {
+	return cc.Context.Err()
+}
+
+func (cc ConsumerContext) Value(key any) any {
+	return cc.Context.Value(key)
+}
