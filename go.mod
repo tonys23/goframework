@@ -1,4 +1,4 @@
-module github.com/tl-goframework
+module github.com/tl-framework/goframework
 
 go 1.19
 
