@@ -1,6 +1,7 @@
 package goframework
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 
@@ -47,7 +48,7 @@ func NewKafkaProducer[T interface{}](k *GoKafka,
 	}
 }
 
-func (kp *KafkaProducer[T]) Publish(correlationId uuid.UUID, msgs ...*T) error {
+func (kp *KafkaProducer[T]) Publish(ctx context.Context, msgs ...*T) error {
 	p, err := kafka.NewProducer(kp.kcm)
 	if err != nil {
 		return err
@@ -55,6 +56,22 @@ func (kp *KafkaProducer[T]) Publish(correlationId uuid.UUID, msgs ...*T) error {
 	defer p.Close()
 
 	for _, m := range msgs {
+
+		headers := helperContextKafka(ctx,
+			map[string]string{
+				"X-Tenant-Id":      "X-Tenant-Id",
+				"X-Author":         "X-Author",
+				"X-Correlation-Id": "X-Correlation-Id"})
+
+		hasCorrelationID := false
+		for _, v := range headers {
+			if v.Key == "X-Correlation-Id" && len(v.Value) > 0 {
+				hasCorrelationID = true
+			}
+		}
+		if !hasCorrelationID {
+			headers = append(headers, kafka.Header{Key: "X-Correlation-Id", Value: []byte(uuid.NewString())})
+		}
 
 		data, err := json.Marshal(m)
 		if err != nil {
@@ -65,7 +82,7 @@ func (kp *KafkaProducer[T]) Publish(correlationId uuid.UUID, msgs ...*T) error {
 			Topic:     &kp.kcs.Topic,
 			Partition: kp.kcs.Partition,
 			Offset:    kp.kcs.Offset,
-		}, Value: data}, nil); err != nil {
+		}, Value: data, Headers: headers}, nil); err != nil {
 			return err
 		}
 

@@ -30,7 +30,7 @@ func (r *MongoDbRepository[T]) GetAll(
 	ctx context.Context,
 	filter map[string]interface{}) *[]T {
 
-	filter["tenantId"] = ctx.(*gin.Context).Request.Header.Get("X-TENANT-ID")
+	helperContext(ctx, filter, map[string]string{"tenantId": "X-Tenant-Id"})
 	cur, err := r.collection.Find(ctx, filter)
 	if err != nil {
 		panic(err)
@@ -54,7 +54,7 @@ func (r *MongoDbRepository[T]) GetAllSkipTake(
 	skip int64,
 	take int64) *[]T {
 
-	filter["tenantId"] = ctx.(*gin.Context).Request.Header.Get("X-TENANT-ID")
+	helperContext(ctx, filter, map[string]string{"tenantId": "X-Tenant-Id"})
 	op := options.Find()
 	op.SetSkip(skip)
 	op.SetLimit(take)
@@ -81,7 +81,9 @@ func (r *MongoDbRepository[T]) GetFirst(
 	filter map[string]interface{}) *T {
 	var el T
 
-	// filter["tenantId"] = ctx.(*gin.Context).Request.Header.Get("X-TENANT-ID")
+	helperContext(ctx, filter, map[string]string{"tenantId": "X-Tenant-Id"})
+
+	// filter["tenantId"] = ctx.(*gin.Context).Request.Header.Get("X-Tenant-Id")
 
 	err := r.collection.FindOne(ctx, filter).Decode(&el)
 
@@ -108,11 +110,10 @@ func (r *MongoDbRepository[T]) insertDefaultParam(ctx context.Context, entity *T
 		return nil, err
 	}
 
-	bsonM["tenantId"] = ctx.(*gin.Context).Request.Header.Get("X-TENANT-ID")
+	helperContext(ctx, bsonM, map[string]string{"tenantId": "X-Tenant-Id", "createdBy": "X-Author", "updatedBy": "X-Author"})
+
 	bsonM["createdAt"] = time.Now()
-	bsonM["createdBy"] = ctx.(*gin.Context).Request.Header.Get("X-AUTHOR")
 	bsonM["updatedAt"] = time.Now()
-	bsonM["updatedBy"] = ctx.(*gin.Context).Request.Header.Get("X-AUTHOR")
 
 	return bsonM, nil
 }
@@ -129,11 +130,10 @@ func (r *MongoDbRepository[T]) replaceDefaultParam(ctx context.Context, old bson
 		return nil, err
 	}
 
-	bsonM["tenantId"] = ctx.(*gin.Context).Request.Header.Get("X-TENANT-ID")
+	helperContext(ctx, bsonM, map[string]string{"tenantId": "X-Tenant-Id", "updatedBy": "X-Author"})
 	bsonM["createdAt"] = old["createdAt"]
 	bsonM["createdBy"] = old["createdBy"]
 	bsonM["updatedAt"] = time.Now()
-	bsonM["updatedBy"] = ctx.(*gin.Context).Request.Header.Get("X-AUTHOR")
 
 	return bsonM, nil
 }
@@ -183,7 +183,7 @@ func (r *MongoDbRepository[T]) Replace(
 	filter map[string]interface{},
 	entity *T) {
 
-	filter["tenantId"] = ctx.(*gin.Context).Request.Header.Get("X-TENANT-ID")
+	filter["tenantId"] = ctx.(*gin.Context).Request.Header.Get("X-Tenant-Id")
 	var el bson.M
 	err := r.collection.FindOne(ctx, filter).Decode(&el)
 

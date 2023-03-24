@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
-	"github.com/google/uuid"
 )
 
 type (
@@ -20,7 +19,7 @@ type (
 		HandleFn()
 	}
 	Producer[T interface{}] interface {
-		Publish(correlationId uuid.UUID, msgs ...*T) error
+		Publish(ctx context.Context, msgs ...*T) error
 	}
 )
 
