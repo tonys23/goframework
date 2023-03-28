@@ -1,7 +1,6 @@
 package goframework
 
 import (
-	"context"
 	"log"
 	"os"
 
@@ -9,8 +8,11 @@ import (
 	"github.com/spf13/viper"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
+	"go.opentelemetry.io/contrib/instrumentation/go.mongodb.org/mongo-driver/mongo/otelmongo"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/propagation"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.uber.org/dig"
 )
 
@@ -18,9 +20,15 @@ type GoFramework struct {
 	ioc           *dig.Container
 	configuration *viper.Viper
 	server        *gin.Engine
+	projectName   string
+	traceProvider *sdktrace.TracerProvider
 }
 
-func NewGoFramework() *GoFramework {
+type GoFrameworkOptions interface {
+	run(gf *GoFramework)
+}
+
+func NewGoFramework(opts ...GoFrameworkOptions) *GoFramework {
 
 	gf := &GoFramework{
 		ioc:           dig.New(),
@@ -28,32 +36,19 @@ func NewGoFramework() *GoFramework {
 		server:        gin.Default(),
 	}
 
+	for _, opt := range opts {
+		opt.run(gf)
+	}
+
+	otel.SetTracerProvider(gf.traceProvider)
+	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
+
 	gf.ioc.Provide(initializeViper)
-	// err := gf.ioc.Provide(func() *gin.Engine { return gf.server })
+	gf.server.Use(otelgin.Middleware(gf.projectName, otelgin.WithTracerProvider(gf.traceProvider)))
 	err := gf.ioc.Provide(func() *gin.RouterGroup { return gf.server.Group("/") })
 	if err != nil {
 		log.Panic(err)
 	}
-
-	ctx := context.Background()
-	exp, err := newExporter(ctx)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	tp := trace.NewTracerProvider(
-		trace.WithBatcher(exp),
-		trace.WithResource(newResource()),
-	)
-	defer func() {
-		if err := tp.Shutdown(context.Background()); err != nil {
-			log.Fatal(err)
-		}
-	}()
-	otel.SetTracerProvider(tp)
-
-	_, span := otel.Tracer("teste").Start(ctx, "Run")
-	defer span.End()
 
 	return gf
 }
@@ -103,7 +98,10 @@ func (gf *GoFramework) Start() error {
 
 // mongo
 func (gf *GoFramework) RegisterDbMongo(host string, user string, pass string, database string) {
+
 	opts := options.Client().ApplyURI(host).SetAuth(options.Credential{Username: user, Password: pass})
+	opts.Monitor = otelmongo.NewMonitor(otelmongo.WithTracerProvider(gf.traceProvider))
+
 	err := gf.ioc.Provide(func() *mongo.Database { return (newMongoClient(opts).Database(database)) })
 	if err != nil {
 		log.Fatalln(err)
@@ -111,7 +109,11 @@ func (gf *GoFramework) RegisterDbMongo(host string, user string, pass string, da
 }
 
 func (gf *GoFramework) RegisterKafka(server string, groupId string) {
-	err := gf.ioc.Provide(func() *GoKafka { return NewKafkaConfigMap(server, groupId) })
+	err := gf.ioc.Provide(func() *GoKafka {
+		kc := NewKafkaConfigMap(server, groupId)
+		kc.newMonitor(gf.traceProvider)
+		return kc
+	})
 	if err != nil {
 		log.Fatalln(err)
 	}

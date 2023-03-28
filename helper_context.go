@@ -28,6 +28,36 @@ func helperContext(c context.Context, filter map[string]interface{}, addfilter m
 	}
 }
 
+func getContextHeader(c context.Context, key string) string {
+
+	switch c := c.(type) {
+	case *gin.Context:
+		return c.Request.Header.Get(key)
+	case *ConsumerContext:
+		for _, kh := range c.Msg.Headers {
+			if kh.Key == key {
+				return string(kh.Value)
+				break
+			}
+		}
+	default:
+		fmt.Println("KFK")
+	}
+	return ""
+}
+
+func getContext(c context.Context) context.Context {
+
+	switch c := c.(type) {
+	case *gin.Context:
+		return c.Request.Context()
+	case *ConsumerContext:
+		return c
+	default:
+		return nil
+	}
+}
+
 func helperContextKafka(c context.Context, addfilter map[string]string) []kafka.Header {
 
 	var filter []kafka.Header

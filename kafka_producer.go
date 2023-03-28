@@ -3,10 +3,13 @@ package goframework
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"os"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/google/uuid"
+	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type (
@@ -23,6 +26,7 @@ type (
 	KafkaProducer[T interface{}] struct {
 		kcs *KafkaProducerSettings
 		kcm *kafka.ConfigMap
+		k   *GoKafka
 	}
 )
 
@@ -45,10 +49,31 @@ func NewKafkaProducer[T interface{}](k *GoKafka,
 	return &KafkaProducer[T]{
 		kcs: kcs,
 		kcm: kcm,
+		k:   k,
 	}
 }
 
 func (kp *KafkaProducer[T]) Publish(ctx context.Context, msgs ...*T) error {
+
+	headers := helperContextKafka(ctx,
+		map[string]string{
+			"X-Tenant-Id":      "X-Tenant-Id",
+			"X-Author":         "X-Author",
+			"X-Correlation-Id": "X-Correlation-Id"})
+
+	tracer := kp.k.traceProvider.Tracer(
+		"Kafka_Consumer",
+	)
+
+	_, span := tracer.Start(getContext(ctx),
+		kp.kcs.Topic,
+		trace.WithAttributes(semconv.MessagingSystem("kafka")),
+		trace.WithAttributes(semconv.MessagingDestinationName(kp.kcs.Topic)),
+		trace.WithSpanKind(trace.SpanKindProducer),
+	)
+
+	defer span.End()
+
 	p, err := kafka.NewProducer(kp.kcm)
 	if err != nil {
 		return err
@@ -56,12 +81,6 @@ func (kp *KafkaProducer[T]) Publish(ctx context.Context, msgs ...*T) error {
 	defer p.Close()
 
 	for _, m := range msgs {
-
-		headers := helperContextKafka(ctx,
-			map[string]string{
-				"X-Tenant-Id":      "X-Tenant-Id",
-				"X-Author":         "X-Author",
-				"X-Correlation-Id": "X-Correlation-Id"})
 
 		hasCorrelationID := false
 		for _, v := range headers {
@@ -78,15 +97,28 @@ func (kp *KafkaProducer[T]) Publish(ctx context.Context, msgs ...*T) error {
 			return err
 		}
 
+		delivery_chan := make(chan kafka.Event, 10000)
 		if err = p.Produce(&kafka.Message{TopicPartition: kafka.TopicPartition{
 			Topic:     &kp.kcs.Topic,
-			Partition: kp.kcs.Partition,
+			Partition: kafka.PartitionAny,
 			Offset:    kp.kcs.Offset,
-		}, Value: data, Headers: headers}, nil); err != nil {
+		}, Value: data, Headers: headers}, delivery_chan); err != nil {
 			return err
 		}
 
-		p.Flush(kp.kcs.TimeoutFlush)
+		go func() {
+			for e := range p.Events() {
+				switch ev := e.(type) {
+				case *kafka.Message:
+					if ev.TopicPartition.Error != nil {
+						log.Fatalf("Failed to deliver message: %v\n", ev.TopicPartition)
+					} else {
+						log.Printf("Successfully produced record to topic %s partition [%d] @ offset %v\n",
+							*ev.TopicPartition.Topic, ev.TopicPartition.Partition, ev.TopicPartition.Offset)
+					}
+				}
+			}
+		}()
 	}
 
 	return nil

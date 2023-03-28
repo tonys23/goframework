@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
 type (
@@ -16,8 +17,9 @@ type (
 	}
 
 	GoKafka struct {
-		server  string
-		groupId string
+		server        string
+		groupId       string
+		traceProvider *sdktrace.TracerProvider
 	}
 )
 
@@ -26,6 +28,10 @@ func NewKafkaConfigMap(connectionString string, groupId string) *GoKafka {
 		server:  connectionString,
 		groupId: groupId,
 	}
+}
+
+func (k *GoKafka) newMonitor(tp *sdktrace.TracerProvider) {
+	k.traceProvider = tp
 }
 
 func (k *GoKafka) Consumer(topic string, fn ConsumerFunc) {

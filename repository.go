@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -31,7 +30,7 @@ func (r *MongoDbRepository[T]) GetAll(
 	filter map[string]interface{}) *[]T {
 
 	helperContext(ctx, filter, map[string]string{"tenantId": "X-Tenant-Id"})
-	cur, err := r.collection.Find(ctx, filter)
+	cur, err := r.collection.Find(getContext(ctx), filter)
 	if err != nil {
 		panic(err)
 	}
@@ -58,7 +57,7 @@ func (r *MongoDbRepository[T]) GetAllSkipTake(
 	op := options.Find()
 	op.SetSkip(skip)
 	op.SetLimit(take)
-	cur, err := r.collection.Find(ctx, filter, op)
+	cur, err := r.collection.Find(getContext(ctx), filter, op)
 
 	if err != nil {
 		panic(err)
@@ -85,7 +84,7 @@ func (r *MongoDbRepository[T]) GetFirst(
 
 	// filter["tenantId"] = ctx.(*gin.Context).Request.Header.Get("X-Tenant-Id")
 
-	err := r.collection.FindOne(ctx, filter).Decode(&el)
+	err := r.collection.FindOne(getContext(ctx), filter).Decode(&el)
 
 	if err == mongo.ErrNoDocuments {
 		return nil
@@ -151,7 +150,7 @@ func (r *MongoDbRepository[T]) Insert(
 		panic(err)
 	}
 
-	_, err = r.collection.InsertOne(ctx, bsonM, opt)
+	_, err = r.collection.InsertOne(getContext(ctx), bsonM, opt)
 	if err != nil {
 		log.Fatalln(err.Error())
 		panic(err)
@@ -172,7 +171,7 @@ func (r *MongoDbRepository[T]) InsertAll(
 
 		uis = append(uis, bsonM)
 	}
-	_, err := r.collection.InsertMany(ctx, uis)
+	_, err := r.collection.InsertMany(getContext(ctx), uis)
 	if err != nil {
 		panic(err)
 	}
@@ -183,20 +182,21 @@ func (r *MongoDbRepository[T]) Replace(
 	filter map[string]interface{},
 	entity *T) {
 
-	filter["tenantId"] = ctx.(*gin.Context).Request.Header.Get("X-Tenant-Id")
+	filter["tenantId"] = getContextHeader(ctx, "X-Tenant-Id")
+
 	var el bson.M
-	err := r.collection.FindOne(ctx, filter).Decode(&el)
+	err := r.collection.FindOne(getContext(ctx), filter).Decode(&el)
 
 	if err == mongo.ErrNoDocuments {
 		return
 	}
 
-	bsonM, err := r.replaceDefaultParam(ctx, el, entity)
+	bsonM, err := r.replaceDefaultParam(getContext(ctx), el, entity)
 	if err != nil {
 		panic(err)
 	}
 
-	_, err = r.collection.ReplaceOne(ctx, filter, bsonM)
+	_, err = r.collection.ReplaceOne(getContext(ctx), filter, bsonM)
 	if err != nil {
 		panic(err)
 	}
