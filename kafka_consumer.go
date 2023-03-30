@@ -31,7 +31,7 @@ type (
 )
 
 func NewKafkaConsumer(kcm *kafka.ConfigMap,
-	kcs *KafkaConsumerSettings, fn ConsumerFunc) Consumer {
+	kcs *KafkaConsumerSettings, fn ConsumerFunc) *KafkaConsumer {
 
 	CreateKafkaTopic(context.Background(), kcm, &TopicConfiguration{
 		Topic:             kcs.Topic,
@@ -49,38 +49,40 @@ func NewKafkaConsumer(kcm *kafka.ConfigMap,
 	return kc
 }
 
-func (kc *KafkaConsumer) HandleFn() {
-	c, err := kafka.NewConsumer(kc.kcm)
-	if err != nil {
-		panic(err)
-	}
+// func (kc *KafkaConsumer) HandleFn() {
+// 	c, err := kafka.NewConsumer(kc.kcm)
+// 	if err != nil {
+// 		panic(err)
+// 	}
 
-	defer c.Close()
-	defer func() {
-		if e := recover(); e != nil {
-			kc.HandleFn()
-		}
-	}()
-	c.SubscribeTopics([]string{kc.kcs.Topic}, nil)
-	for {
+// 	defer c.Close()
+// 	defer func() {
+// 		if e := recover(); e != nil {
+// 			kc.HandleFn()
+// 		}
+// 	}()
+// 	c.SubscribeTopics([]string{kc.kcs.Topic}, nil)
+// 	for {
 
-		msg, err := c.ReadMessage(-1)
-		if err != nil {
-			panic(err)
-		}
+// 		msg, err := c.ReadMessage(-1)
+// 		if err != nil {
+// 			panic(err)
+// 		}
 
-		kafkaCallFnWithResilence(msg, kc.kcm, *kc.kcs, kc.fn)
-		c.CommitMessage(msg)
-	}
-}
+// 		kafkaCallFnWithResilence(msg, kc.kcm, *kc.kcs, kc.fn)
+// 		c.CommitMessage(msg)
+// 	}
+// }
 
-func kafkaCallFnWithResilence(msg *kafka.Message,
+func kafkaCallFnWithResilence(
+	ctx context.Context,
+	msg *kafka.Message,
 	kcm *kafka.ConfigMap,
 	kcs KafkaConsumerSettings,
 	fn ConsumerFunc) {
 
 	cctx := &ConsumerContext{
-		Context:          context.Background(),
+		Context:          ctx,
 		RemainingRetries: kcs.Retries,
 		Faulted:          kcs.Retries == 0,
 		Msg:              msg}
@@ -91,11 +93,11 @@ func kafkaCallFnWithResilence(msg *kafka.Message,
 			fmt.Println(err.Error())
 			if kcs.Retries > 1 {
 				kcs.Retries--
-				kafkaCallFnWithResilence(msg, kcm, kcs, fn)
+				kafkaCallFnWithResilence(ctx, msg, kcm, kcs, fn)
 				return
 			}
 
-			kafkaSendToDlq(&kcs, kcm, msg)
+			kafkaSendToDlq(cctx, &kcs, kcm, msg)
 		}
 	}()
 
@@ -103,6 +105,7 @@ func kafkaCallFnWithResilence(msg *kafka.Message,
 }
 
 func kafkaSendToDlq(
+	ctx context.Context,
 	kcs *KafkaConsumerSettings,
 	kcm *kafka.ConfigMap,
 	msg *kafka.Message) {
@@ -116,7 +119,7 @@ func kafkaSendToDlq(
 
 	tpn := *msg.TopicPartition.Topic + "_error"
 
-	CreateKafkaTopic(context.Background(), kcm, &TopicConfiguration{
+	CreateKafkaTopic(ctx, kcm, &TopicConfiguration{
 		Topic:             tpn,
 		NumPartitions:     1,
 		ReplicationFactor: 1,

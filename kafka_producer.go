@@ -66,7 +66,7 @@ func (kp *KafkaProducer[T]) Publish(ctx context.Context, msgs ...*T) error {
 	)
 
 	_, span := tracer.Start(getContext(ctx),
-		kp.kcs.Topic,
+		"producer:"+kp.kcs.Topic,
 		trace.WithAttributes(semconv.MessagingSystem("kafka")),
 		trace.WithAttributes(semconv.MessagingDestinationName(kp.kcs.Topic)),
 		trace.WithSpanKind(trace.SpanKindProducer),

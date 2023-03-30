@@ -7,6 +7,8 @@ import (
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type (
@@ -43,16 +45,14 @@ func (k *GoKafka) Consumer(topic string, fn ConsumerFunc) {
 			Retries:         5,
 		}
 
+		tracer := k.traceProvider.Tracer(
+			"kafka-consumer",
+		)
+
 		kc := &kafka.ConfigMap{
 			"bootstrap.servers": k.server,
 			"group.id":          k.groupId,
 			"auto.offset.reset": kcs.AutoOffsetReset}
-
-		// CreateKafkaTopic(context.Background(), kc, &TopicConfiguration{
-		// 	Topic:             kcs.Topic,
-		// 	NumPartitions:     kcs.NumPartitions,
-		// 	ReplicationFactor: kcs.ReplicationFactor,
-		// })
 
 		consumer, err := kafka.NewConsumer(kc)
 		if err != nil {
@@ -68,12 +68,21 @@ func (k *GoKafka) Consumer(topic string, fn ConsumerFunc) {
 
 		for {
 			msg, err := consumer.ReadMessage(-1)
+
+			ctx := context.Background()
+			ctx, span := tracer.Start(ctx, "consumer:"+topic,
+				trace.WithAttributes(semconv.MessagingSystem("kafka")),
+				trace.WithAttributes(semconv.MessagingDestinationName(topic)),
+				trace.WithSpanKind(trace.SpanKindProducer))
+
 			if err != nil {
 				panic(err)
 			}
 
-			kafkaCallFnWithResilence(msg, kc, *kcs, fn)
+			kafkaCallFnWithResilence(ctx, msg, kc, *kcs, fn)
 			consumer.CommitMessage(msg)
+
+			span.End()
 		}
 
 	}(topic)

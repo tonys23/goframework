@@ -14,6 +14,7 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.uber.org/dig"
+	"go.uber.org/zap"
 )
 
 type GoFramework struct {
@@ -43,6 +44,7 @@ func NewGoFramework(opts ...GoFrameworkOptions) *GoFramework {
 	otel.SetTracerProvider(gf.traceProvider)
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
 
+	gf.ioc.Provide(initializeLog)
 	gf.ioc.Provide(initializeViper)
 	gf.server.Use(otelgin.Middleware(gf.projectName, otelgin.WithTracerProvider(gf.traceProvider)))
 	err := gf.ioc.Provide(func() *gin.RouterGroup { return gf.server.Group("/") })
@@ -63,6 +65,11 @@ func initializeViper() *viper.Viper {
 		panic(err)
 	}
 	return v
+}
+
+func initializeLog() *GfLogger {
+	logger, _ := zap.NewProduction()
+	return &GfLogger{logger}
 }
 
 func (gf *GoFramework) GetConfig(key string) string {
