@@ -20,7 +20,6 @@ type (
 	KafkaConsumer struct {
 		kcs *KafkaConsumerSettings
 		kcm *kafka.ConfigMap
-		fn  ConsumerFunc
 	}
 
 	KafkaContext struct {
@@ -48,31 +47,6 @@ func NewKafkaConsumer(kcm *kafka.ConfigMap,
 	}
 	return kc
 }
-
-// func (kc *KafkaConsumer) HandleFn() {
-// 	c, err := kafka.NewConsumer(kc.kcm)
-// 	if err != nil {
-// 		panic(err)
-// 	}
-
-// 	defer c.Close()
-// 	defer func() {
-// 		if e := recover(); e != nil {
-// 			kc.HandleFn()
-// 		}
-// 	}()
-// 	c.SubscribeTopics([]string{kc.kcs.Topic}, nil)
-// 	for {
-
-// 		msg, err := c.ReadMessage(-1)
-// 		if err != nil {
-// 			panic(err)
-// 		}
-
-// 		kafkaCallFnWithResilence(msg, kc.kcm, *kc.kcs, kc.fn)
-// 		c.CommitMessage(msg)
-// 	}
-// }
 
 func kafkaCallFnWithResilence(
 	ctx context.Context,

@@ -6,9 +6,7 @@ import (
 	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
-	"go.opentelemetry.io/otel/trace"
+	newrelic "github.com/newrelic/go-agent/v3/newrelic"
 )
 
 type (
@@ -19,9 +17,9 @@ type (
 	}
 
 	GoKafka struct {
-		server        string
-		groupId       string
-		traceProvider *sdktrace.TracerProvider
+		server  string
+		groupId string
+		nrapp   *newrelic.Application
 	}
 )
 
@@ -32,8 +30,8 @@ func NewKafkaConfigMap(connectionString string, groupId string) *GoKafka {
 	}
 }
 
-func (k *GoKafka) newMonitor(tp *sdktrace.TracerProvider) {
-	k.traceProvider = tp
+func (k *GoKafka) newMonitor(nrapp *newrelic.Application) {
+	k.nrapp = nrapp
 }
 
 func (k *GoKafka) Consumer(topic string, fn ConsumerFunc) {
@@ -44,10 +42,6 @@ func (k *GoKafka) Consumer(topic string, fn ConsumerFunc) {
 			AutoOffsetReset: "earliest",
 			Retries:         5,
 		}
-
-		tracer := k.traceProvider.Tracer(
-			"kafka-consumer",
-		)
 
 		kc := &kafka.ConfigMap{
 			"bootstrap.servers": k.server,
@@ -68,12 +62,8 @@ func (k *GoKafka) Consumer(topic string, fn ConsumerFunc) {
 
 		for {
 			msg, err := consumer.ReadMessage(-1)
-
-			ctx := context.Background()
-			ctx, span := tracer.Start(ctx, "consumer:"+topic,
-				trace.WithAttributes(semconv.MessagingSystem("kafka")),
-				trace.WithAttributes(semconv.MessagingDestinationName(topic)),
-				trace.WithSpanKind(trace.SpanKindProducer))
+			transaction := k.nrapp.StartTransaction("kafka/consumer")
+			ctx := newrelic.NewContext(context.Background(), transaction)
 
 			if err != nil {
 				panic(err)
@@ -81,8 +71,7 @@ func (k *GoKafka) Consumer(topic string, fn ConsumerFunc) {
 
 			kafkaCallFnWithResilence(ctx, msg, kc, *kcs, fn)
 			consumer.CommitMessage(msg)
-
-			span.End()
+			transaction.End()
 		}
 
 	}(topic)

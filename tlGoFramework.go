@@ -8,21 +8,14 @@ import (
 	"github.com/spf13/viper"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
-	"go.opentelemetry.io/contrib/instrumentation/go.mongodb.org/mongo-driver/mongo/otelmongo"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/propagation"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.uber.org/dig"
-	"go.uber.org/zap"
 )
 
 type GoFramework struct {
 	ioc           *dig.Container
 	configuration *viper.Viper
 	server        *gin.Engine
-	projectName   string
-	traceProvider *sdktrace.TracerProvider
+	nrApplication gfAgentTelemetry
 }
 
 type GoFrameworkOptions interface {
@@ -41,12 +34,11 @@ func NewGoFramework(opts ...GoFrameworkOptions) *GoFramework {
 		opt.run(gf)
 	}
 
-	otel.SetTracerProvider(gf.traceProvider)
-	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
-
-	gf.ioc.Provide(initializeLog)
 	gf.ioc.Provide(initializeViper)
-	gf.server.Use(otelgin.Middleware(gf.projectName, otelgin.WithTracerProvider(gf.traceProvider)))
+	gf.ioc.Provide(newLog)
+	gf.ioc.Provide(func() gfAgentTelemetry { return gf.nrApplication })
+
+	gf.server.Use(gf.nrApplication.gin())
 	err := gf.ioc.Provide(func() *gin.RouterGroup { return gf.server.Group("/") })
 	if err != nil {
 		log.Panic(err)
@@ -65,11 +57,6 @@ func initializeViper() *viper.Viper {
 		panic(err)
 	}
 	return v
-}
-
-func initializeLog() *GfLogger {
-	logger, _ := zap.NewProduction()
-	return &GfLogger{logger}
 }
 
 func (gf *GoFramework) GetConfig(key string) string {
@@ -106,8 +93,7 @@ func (gf *GoFramework) Start() error {
 // mongo
 func (gf *GoFramework) RegisterDbMongo(host string, user string, pass string, database string) {
 
-	opts := options.Client().ApplyURI(host).SetAuth(options.Credential{Username: user, Password: pass})
-	opts.Monitor = otelmongo.NewMonitor(otelmongo.WithTracerProvider(gf.traceProvider))
+	opts := options.Client().ApplyURI(host).SetAuth(options.Credential{Username: user, Password: pass}).SetMonitor(gf.nrApplication.mongoMonitor())
 
 	err := gf.ioc.Provide(func() *mongo.Database { return (newMongoClient(opts).Database(database)) })
 	if err != nil {
@@ -118,7 +104,7 @@ func (gf *GoFramework) RegisterDbMongo(host string, user string, pass string, da
 func (gf *GoFramework) RegisterKafka(server string, groupId string) {
 	err := gf.ioc.Provide(func() *GoKafka {
 		kc := NewKafkaConfigMap(server, groupId)
-		kc.newMonitor(gf.traceProvider)
+		kc.newMonitor(gf.nrApplication.getAgent())
 		return kc
 	})
 	if err != nil {

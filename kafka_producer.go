@@ -8,8 +8,7 @@ import (
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/google/uuid"
-	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
-	"go.opentelemetry.io/otel/trace"
+	"github.com/newrelic/go-agent/v3/newrelic"
 )
 
 type (
@@ -55,24 +54,16 @@ func NewKafkaProducer[T interface{}](k *GoKafka,
 
 func (kp *KafkaProducer[T]) Publish(ctx context.Context, msgs ...*T) error {
 
+	txn := newrelic.FromContext(ctx)
+	nrSegment := txn.StartSegment(kp.kcs.Topic)
+	nrSegment.AddAttribute("span.kind", "client")
+	defer nrSegment.End()
+
 	headers := helperContextKafka(ctx,
 		map[string]string{
 			"X-Tenant-Id":      "X-Tenant-Id",
 			"X-Author":         "X-Author",
 			"X-Correlation-Id": "X-Correlation-Id"})
-
-	tracer := kp.k.traceProvider.Tracer(
-		"Kafka_Consumer",
-	)
-
-	_, span := tracer.Start(getContext(ctx),
-		"producer:"+kp.kcs.Topic,
-		trace.WithAttributes(semconv.MessagingSystem("kafka")),
-		trace.WithAttributes(semconv.MessagingDestinationName(kp.kcs.Topic)),
-		trace.WithSpanKind(trace.SpanKindProducer),
-	)
-
-	defer span.End()
 
 	p, err := kafka.NewProducer(kp.kcm)
 	if err != nil {
@@ -119,6 +110,7 @@ func (kp *KafkaProducer[T]) Publish(ctx context.Context, msgs ...*T) error {
 				}
 			}
 		}()
+
 	}
 
 	return nil

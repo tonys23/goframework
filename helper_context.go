@@ -37,7 +37,6 @@ func getContextHeader(c context.Context, key string) string {
 		for _, kh := range c.Msg.Headers {
 			if kh.Key == key {
 				return string(kh.Value)
-				break
 			}
 		}
 	default:
@@ -51,10 +50,8 @@ func getContext(c context.Context) context.Context {
 	switch c := c.(type) {
 	case *gin.Context:
 		return c.Request.Context()
-	case *ConsumerContext:
-		return c
 	default:
-		return nil
+		return c
 	}
 }
 

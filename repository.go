@@ -17,7 +17,8 @@ type MongoDbRepository[T interface{}] struct {
 }
 
 func NewMongoDbRepository[T interface{}](
-	db *mongo.Database) IRepository[T] {
+	db *mongo.Database,
+) IRepository[T] {
 	var r T
 	coll := db.Collection(strings.ToLower(reflect.TypeOf(r).Name()))
 	return &MongoDbRepository[T]{
@@ -150,7 +151,7 @@ func (r *MongoDbRepository[T]) Insert(
 		panic(err)
 	}
 
-	_, err = r.collection.InsertOne(getContext(ctx), bsonM, opt)
+	_, err = r.collection.InsertOne(ctx, bsonM, opt)
 	if err != nil {
 		log.Fatalln(err.Error())
 		panic(err)
