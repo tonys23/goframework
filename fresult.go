@@ -1,10 +1,10 @@
 package goframework
 
-type FResult[T interface{}] struct {
+type FResult struct {
 	Code int
-	Data T
+	Data any
 }
 
-func NewFResult[T interface{}](code int, data T) *FResult[T] {
-	return &FResult[T]{Code: code, Data: data}
+func NewFResult(code int, data any) *FResult {
+	return &FResult{Code: code, Data: data}
 }
