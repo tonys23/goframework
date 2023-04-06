@@ -12,7 +12,10 @@ func helperContext(c context.Context, filter map[string]interface{}, addfilter m
 	switch c := c.(type) {
 	case *gin.Context:
 		for k, v := range addfilter {
-			filter[k] = string(c.Request.Header.Get(v))
+			value := string(c.Request.Header.Get(v))
+			if value != "" {
+				filter[k] = string(c.Request.Header.Get(v))
+			}
 		}
 	case *ConsumerContext:
 		for k, v := range addfilter {

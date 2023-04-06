@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -30,7 +31,15 @@ func (r *MongoDbRepository[T]) GetAll(
 	ctx context.Context,
 	filter map[string]interface{}) *[]T {
 
-	helperContext(ctx, filter, map[string]string{"tenantId": "X-Tenant-Id"})
+	// helperContext(ctx, filter, map[string]string{"tenantId": "X-Tenant-Id"})
+
+	if t := getContextHeader(ctx, "X-Tenant-Id"); t != "" {
+		filter["$or"] = bson.A{
+			bson.D{{"tenantId", getContextHeader(ctx, "X-Tenant-Id")}},
+			bson.D{{"tenantId", "00000000-OOOO-0000-0000-00000000"}},
+		}
+	}
+	// map[string]interface{}{"tenantId": getContextHeader(ctx, "X-Tenant-Id")}
 	cur, err := r.collection.Find(getContext(ctx), filter)
 	if err != nil {
 		panic(err)
@@ -81,9 +90,12 @@ func (r *MongoDbRepository[T]) GetFirst(
 	filter map[string]interface{}) *T {
 	var el T
 
-	helperContext(ctx, filter, map[string]string{"tenantId": "X-Tenant-Id"})
-
-	// filter["tenantId"] = ctx.(*gin.Context).Request.Header.Get("X-Tenant-Id")
+	if t := getContextHeader(ctx, "X-Tenant-Id"); t != "" {
+		filter["$or"] = bson.A{
+			bson.D{{"tenantId", uuid.MustParse(getContextHeader(ctx, "X-Tenant-Id"))}},
+			bson.D{{"tenantId", uuid.MustParse("00000000-0000-0000-0000-000000000000")}},
+		}
+	}
 
 	err := r.collection.FindOne(getContext(ctx), filter).Decode(&el)
 
@@ -99,7 +111,7 @@ func (r *MongoDbRepository[T]) GetFirst(
 }
 
 func (r *MongoDbRepository[T]) insertDefaultParam(ctx context.Context, entity *T) (bson.M, error) {
-	bsonMap, err := bson.Marshal(entity)
+	bsonMap, err := bson.MarshalWithRegistry(mongoRegistry, entity)
 	if err != nil {
 		return nil, err
 	}
@@ -110,8 +122,8 @@ func (r *MongoDbRepository[T]) insertDefaultParam(ctx context.Context, entity *T
 		return nil, err
 	}
 
-	helperContext(ctx, bsonM, map[string]string{"tenantId": "X-Tenant-Id", "createdBy": "X-Author", "updatedBy": "X-Author"})
-
+	helperContext(ctx, bsonM, map[string]string{"createdBy": "X-Author", "updatedBy": "X-Author"})
+	bsonM["tenantId"] = uuid.MustParse(getContextHeader(ctx, "X-Tenant-Id"))
 	bsonM["createdAt"] = time.Now()
 	bsonM["updatedAt"] = time.Now()
 
@@ -119,7 +131,7 @@ func (r *MongoDbRepository[T]) insertDefaultParam(ctx context.Context, entity *T
 }
 
 func (r *MongoDbRepository[T]) replaceDefaultParam(ctx context.Context, old bson.M, entity *T) (bson.M, error) {
-	bsonMap, err := bson.Marshal(entity)
+	bsonMap, err := bson.MarshalWithRegistry(mongoRegistry, entity)
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +142,8 @@ func (r *MongoDbRepository[T]) replaceDefaultParam(ctx context.Context, old bson
 		return nil, err
 	}
 
-	helperContext(ctx, bsonM, map[string]string{"tenantId": "X-Tenant-Id", "updatedBy": "X-Author"})
+	helperContext(ctx, bsonM, map[string]string{"updatedBy": "X-Author"})
+	bsonM["tenantId"] = uuid.MustParse(getContextHeader(ctx, "X-Tenant-Id"))
 	bsonM["createdAt"] = old["createdAt"]
 	bsonM["createdBy"] = old["createdBy"]
 	bsonM["updatedAt"] = time.Now()
