@@ -2,7 +2,6 @@ package goframework
 
 import (
 	"context"
-	"log"
 	"reflect"
 	"strings"
 	"time"
@@ -153,48 +152,49 @@ func (r *MongoDbRepository[T]) replaceDefaultParam(ctx context.Context, old bson
 
 func (r *MongoDbRepository[T]) Insert(
 	ctx context.Context,
-	entity *T) {
+	entity *T) error {
 
 	opt := options.InsertOne()
 	opt.SetBypassDocumentValidation(true)
 
 	bsonM, err := r.insertDefaultParam(ctx, entity)
 	if err != nil {
-		log.Fatalln(err.Error())
-		panic(err)
+		return err
 	}
 
 	_, err = r.collection.InsertOne(ctx, bsonM, opt)
 	if err != nil {
-		log.Fatalln(err.Error())
-		panic(err)
+		return err
 	}
+
+	return nil
 }
 
 func (r *MongoDbRepository[T]) InsertAll(
 	ctx context.Context,
-	entities *[]T) {
+	entities *[]T) error {
 
 	var uis []interface{}
 	for _, ui := range *entities {
 		bsonM, err := r.insertDefaultParam(ctx, &ui)
 		if err != nil {
-			log.Fatalln(err.Error())
-			panic(err)
+			return err
 		}
 
 		uis = append(uis, bsonM)
 	}
 	_, err := r.collection.InsertMany(getContext(ctx), uis)
 	if err != nil {
-		panic(err)
+		return err
 	}
+
+	return nil
 }
 
 func (r *MongoDbRepository[T]) Replace(
 	ctx context.Context,
 	filter map[string]interface{},
-	entity *T) {
+	entity *T) error {
 
 	filter["tenantId"] = getContextHeader(ctx, "X-Tenant-Id")
 
@@ -202,16 +202,18 @@ func (r *MongoDbRepository[T]) Replace(
 	err := r.collection.FindOne(getContext(ctx), filter).Decode(&el)
 
 	if err == mongo.ErrNoDocuments {
-		return
+		return err
 	}
 
 	bsonM, err := r.replaceDefaultParam(getContext(ctx), el, entity)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	_, err = r.collection.ReplaceOne(getContext(ctx), filter, bsonM)
 	if err != nil {
-		panic(err)
+		return err
 	}
+
+	return nil
 }

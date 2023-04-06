@@ -12,10 +12,10 @@ type IRepository[T interface{}] interface {
 	GetFirst(ctx context.Context,
 		filter map[string]interface{}) *T
 	Insert(ctx context.Context,
-		entity *T)
+		entity *T) error
 	InsertAll(ctx context.Context,
-		entities *[]T)
+		entities *[]T) error
 	Replace(ctx context.Context,
 		filter map[string]interface{},
-		entity *T)
+		entity *T) error
 }
