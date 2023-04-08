@@ -2,6 +2,7 @@ package goframework
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"strings"
 	"time"
@@ -129,22 +130,34 @@ func (r *MongoDbRepository[T]) insertDefaultParam(ctx context.Context, entity *T
 	return bsonM, nil
 }
 
-func (r *MongoDbRepository[T]) replaceDefaultParam(ctx context.Context, old bson.M, entity *T) (bson.M, error) {
+func (r *MongoDbRepository[T]) replaceDefaultParam(ctx context.Context, old *T, entity *T) (bson.M, error) {
 	bsonMap, err := bson.MarshalWithRegistry(mongoRegistry, entity)
 	if err != nil {
 		return nil, err
 	}
 
+	bsonOldMap, err := bson.MarshalWithRegistry(mongoRegistry, old)
+	if err != nil {
+		return nil, err
+	}
+
 	var bsonM bson.M
+	var bsonMOld bson.M
+
 	err = bson.Unmarshal(bsonMap, &bsonM)
+	if err != nil {
+		return nil, err
+	}
+
+	err = bson.Unmarshal(bsonOldMap, &bsonMOld)
 	if err != nil {
 		return nil, err
 	}
 
 	helperContext(ctx, bsonM, map[string]string{"updatedBy": "X-Author"})
 	bsonM["tenantId"] = uuid.MustParse(getContextHeader(ctx, "X-Tenant-Id"))
-	bsonM["createdAt"] = old["createdAt"]
-	bsonM["createdBy"] = old["createdBy"]
+	bsonM["createdAt"] = bsonMOld["createdAt"]
+	bsonM["createdBy"] = bsonMOld["createdBy"]
 	bsonM["updatedAt"] = time.Now()
 
 	return bsonM, nil
@@ -196,16 +209,12 @@ func (r *MongoDbRepository[T]) Replace(
 	filter map[string]interface{},
 	entity *T) error {
 
-	filter["tenantId"] = getContextHeader(ctx, "X-Tenant-Id")
-
-	var el bson.M
-	err := r.collection.FindOne(getContext(ctx), filter).Decode(&el)
-
-	if err == mongo.ErrNoDocuments {
-		return err
+	data := r.GetFirst(ctx, filter)
+	if data == nil {
+		return fmt.Errorf("entity not found")
 	}
 
-	bsonM, err := r.replaceDefaultParam(getContext(ctx), el, entity)
+	bsonM, err := r.replaceDefaultParam(getContext(ctx), data, entity)
 	if err != nil {
 		return err
 	}
