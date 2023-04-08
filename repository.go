@@ -2,7 +2,6 @@ package goframework
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 	"strings"
 	"time"
@@ -90,9 +89,9 @@ func (r *MongoDbRepository[T]) GetFirst(
 	filter map[string]interface{}) *T {
 	var el T
 
-	if t := getContextHeader(ctx, "X-Tenant-Id"); t != "" {
+	if tenantId := getContextHeader(ctx, "X-Tenant-Id"); tenantId != "" {
 		filter["$or"] = bson.A{
-			bson.D{{"tenantId", uuid.MustParse(getContextHeader(ctx, "X-Tenant-Id"))}},
+			bson.D{{"tenantId", uuid.MustParse(tenantId)}},
 			bson.D{{"tenantId", uuid.MustParse("00000000-0000-0000-0000-000000000000")}},
 		}
 	}
@@ -130,36 +129,23 @@ func (r *MongoDbRepository[T]) insertDefaultParam(ctx context.Context, entity *T
 	return bsonM, nil
 }
 
-func (r *MongoDbRepository[T]) replaceDefaultParam(ctx context.Context, old *T, entity *T) (bson.M, error) {
+func (r *MongoDbRepository[T]) replaceDefaultParam(ctx context.Context, old bson.M, entity *T) (bson.M, error) {
 	bsonMap, err := bson.MarshalWithRegistry(mongoRegistry, entity)
 	if err != nil {
 		return nil, err
 	}
 
-	bsonOldMap, err := bson.MarshalWithRegistry(mongoRegistry, old)
-	if err != nil {
-		return nil, err
-	}
-
 	var bsonM bson.M
-	var bsonMOld bson.M
-
 	err = bson.Unmarshal(bsonMap, &bsonM)
 	if err != nil {
 		return nil, err
 	}
 
-	err = bson.Unmarshal(bsonOldMap, &bsonMOld)
-	if err != nil {
-		return nil, err
-	}
-
-	helperContext(ctx, bsonM, map[string]string{"updatedBy": "X-Author"})
-	bsonM["tenantId"] = uuid.MustParse(getContextHeader(ctx, "X-Tenant-Id"))
-	bsonM["createdAt"] = bsonMOld["createdAt"]
-	bsonM["createdBy"] = bsonMOld["createdBy"]
+	bsonM["tenantId"] = old["tenantId"]
+	bsonM["createdAt"] = old["createdAt"]
+	bsonM["createdBy"] = old["createdBy"]
 	bsonM["updatedAt"] = time.Now()
-
+	bsonM["updatedBy"] = getContextHeader(ctx, "X-Author")
 	return bsonM, nil
 }
 
@@ -209,12 +195,18 @@ func (r *MongoDbRepository[T]) Replace(
 	filter map[string]interface{},
 	entity *T) error {
 
-	data := r.GetFirst(ctx, filter)
-	if data == nil {
-		return fmt.Errorf("entity not found")
+	if tenantId := getContextHeader(ctx, "X-Tenant-Id"); tenantId != "" {
+		filter["tenantId"] = uuid.MustParse(tenantId)
 	}
 
-	bsonM, err := r.replaceDefaultParam(getContext(ctx), data, entity)
+	var el bson.M
+	err := r.collection.FindOne(getContext(ctx), filter).Decode(&el)
+
+	if err == mongo.ErrNoDocuments {
+		return err
+	}
+
+	bsonM, err := r.replaceDefaultParam(ctx, el, entity)
 	if err != nil {
 		return err
 	}
