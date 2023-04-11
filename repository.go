@@ -34,8 +34,8 @@ func (r *MongoDbRepository[T]) GetAll(
 
 	if t := getContextHeader(ctx, "X-Tenant-Id"); t != "" {
 		filter["$or"] = bson.A{
-			bson.D{{"tenantId", getContextHeader(ctx, "X-Tenant-Id")}},
-			bson.D{{"tenantId", "00000000-OOOO-0000-0000-00000000"}},
+			bson.D{{"tenantId", t}},
+			bson.D{{"tenantId", "00000000-0000-0000-0000-00000000"}},
 		}
 	}
 	// map[string]interface{}{"tenantId": getContextHeader(ctx, "X-Tenant-Id")}
