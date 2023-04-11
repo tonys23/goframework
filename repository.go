@@ -120,9 +120,10 @@ func (r *MongoDbRepository[T]) insertDefaultParam(ctx context.Context, entity *T
 	if err != nil {
 		return nil, err
 	}
-
 	helperContext(ctx, bsonM, map[string]string{"createdBy": "X-Author", "updatedBy": "X-Author"})
-	bsonM["tenantId"] = uuid.MustParse(getContextHeader(ctx, "X-Tenant-Id"))
+	if tenantid := getContextHeader(ctx, "X-Tenant-Id"); tenantid != "" {
+		bsonM["tenantId"] = uuid.MustParse(tenantid)
+	}
 	bsonM["createdAt"] = time.Now()
 	bsonM["updatedAt"] = time.Now()
 
