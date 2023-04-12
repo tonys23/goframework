@@ -2,6 +2,7 @@ package goframework
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"strings"
 	"time"
@@ -30,15 +31,13 @@ func (r *MongoDbRepository[T]) GetAll(
 	ctx context.Context,
 	filter map[string]interface{}) *[]T {
 
-	// helperContext(ctx, filter, map[string]string{"tenantId": "X-Tenant-Id"})
-
-	if t := getContextHeader(ctx, "X-Tenant-Id"); t != "" {
+	if tenantId := getContextHeader(ctx, "X-Tenant-Id"); tenantId != "" {
 		filter["$or"] = bson.A{
-			bson.D{{"tenantId", t}},
-			bson.D{{"tenantId", "00000000-0000-0000-0000-00000000"}},
+			bson.D{{"tenantId", uuid.MustParse(tenantId)}},
+			bson.D{{"tenantId", uuid.MustParse("00000000-0000-0000-0000-000000000000")}},
 		}
 	}
-	// map[string]interface{}{"tenantId": getContextHeader(ctx, "X-Tenant-Id")}
+
 	cur, err := r.collection.Find(getContext(ctx), filter)
 	if err != nil {
 		panic(err)
@@ -95,6 +94,13 @@ func (r *MongoDbRepository[T]) GetFirst(
 			bson.D{{"tenantId", uuid.MustParse("00000000-0000-0000-0000-000000000000")}},
 		}
 	}
+
+	_, bsonMap, e := bson.MarshalValue(filter)
+	if e != nil {
+		panic(e)
+	}
+
+	fmt.Print(bson.Raw(bsonMap))
 
 	err := r.collection.FindOne(getContext(ctx), filter).Decode(&el)
 
