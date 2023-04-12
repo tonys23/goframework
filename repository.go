@@ -2,6 +2,7 @@ package goframework
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"strings"
 	"time"
@@ -238,9 +239,14 @@ func (r *MongoDbRepository[T]) Update(
 		fields["updatedAt"] = time.Now()
 	}
 
-	_, err := r.collection.UpdateOne(getContext(ctx), filter, map[string]interface{}{"$set": fields})
+	re, err := r.collection.UpdateOne(getContext(ctx), filter, map[string]interface{}{"$set": fields})
+
 	if err != nil {
 		return err
+	}
+
+	if re.MatchedCount == 0 {
+		return fmt.Errorf("MatchedCountZero")
 	}
 
 	return nil
