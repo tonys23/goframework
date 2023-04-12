@@ -18,4 +18,7 @@ type IRepository[T interface{}] interface {
 	Replace(ctx context.Context,
 		filter map[string]interface{},
 		entity *T) error
+	Update(ctx context.Context,
+		filter map[string]interface{},
+		fields map[string]interface{}) error
 }

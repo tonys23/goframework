@@ -223,3 +223,25 @@ func (r *MongoDbRepository[T]) Replace(
 
 	return nil
 }
+
+func (r *MongoDbRepository[T]) Update(
+	ctx context.Context,
+	filter map[string]interface{},
+	fields map[string]interface{}) error {
+
+	if tenantId := getContextHeader(ctx, "X-Tenant-Id"); tenantId != "" {
+		filter["tenantId"] = uuid.MustParse(tenantId)
+	}
+
+	if author := getContextHeader(ctx, "X-Author"); author != "" {
+		fields["updatedBy"] = author
+		fields["updatedAt"] = time.Now()
+	}
+
+	_, err := r.collection.UpdateOne(getContext(ctx), filter, map[string]interface{}{"$set": fields})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
