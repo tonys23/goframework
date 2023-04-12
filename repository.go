@@ -2,7 +2,6 @@ package goframework
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 	"strings"
 	"time"
@@ -94,13 +93,6 @@ func (r *MongoDbRepository[T]) GetFirst(
 			bson.D{{"tenantId", uuid.MustParse("00000000-0000-0000-0000-000000000000")}},
 		}
 	}
-
-	_, bsonMap, e := bson.MarshalValue(filter)
-	if e != nil {
-		panic(e)
-	}
-
-	fmt.Print(bson.Raw(bsonMap))
 
 	err := r.collection.FindOne(getContext(ctx), filter).Decode(&el)
 
