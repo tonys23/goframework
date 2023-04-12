@@ -60,7 +60,13 @@ func (r *MongoDbRepository[T]) GetAllSkipTake(
 	skip int64,
 	take int64) *[]T {
 
-	helperContext(ctx, filter, map[string]string{"tenantId": "X-Tenant-Id"})
+	if tenantId := getContextHeader(ctx, "X-Tenant-Id"); tenantId != "" {
+		filter["$or"] = bson.A{
+			bson.D{{"tenantId", uuid.MustParse(tenantId)}},
+			bson.D{{"tenantId", uuid.MustParse("00000000-0000-0000-0000-000000000000")}},
+		}
+	}
+
 	op := options.Find()
 	op.SetSkip(skip)
 	op.SetLimit(take)
