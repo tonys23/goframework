@@ -3,6 +3,7 @@ package goframework
 import (
 	"context"
 	"fmt"
+	"os"
 	"reflect"
 	"strings"
 	"time"
@@ -38,6 +39,11 @@ func (r *MongoDbRepository[T]) GetAll(
 		}
 	}
 
+	if os.Getenv("env") == "local" {
+		_, obj, err := bson.MarshalValue(filter)
+		fmt.Print(obj, err)
+	}
+
 	cur, err := r.collection.Find(getContext(ctx), filter)
 	if err != nil {
 		panic(err)
@@ -71,6 +77,12 @@ func (r *MongoDbRepository[T]) GetAllSkipTake(
 	op := options.Find()
 	op.SetSkip(skip)
 	op.SetLimit(take)
+
+	if os.Getenv("env") == "local" {
+		_, obj, err := bson.MarshalValue(filter)
+		fmt.Print(obj, err)
+	}
+
 	cur, err := r.collection.Find(getContext(ctx), filter, op)
 
 	if err != nil {
@@ -99,6 +111,11 @@ func (r *MongoDbRepository[T]) GetFirst(
 			bson.D{{"tenantId", uuid.MustParse(tenantId)}},
 			bson.D{{"tenantId", uuid.MustParse("00000000-0000-0000-0000-000000000000")}},
 		}
+	}
+
+	if os.Getenv("env") == "local" {
+		_, obj, err := bson.MarshalValue(filter)
+		fmt.Print(obj, err)
 	}
 
 	err := r.collection.FindOne(getContext(ctx), filter).Decode(&el)
@@ -205,6 +222,11 @@ func (r *MongoDbRepository[T]) Replace(
 		filter["tenantId"] = uuid.MustParse(tenantId)
 	}
 
+	if os.Getenv("env") == "local" {
+		_, obj, err := bson.MarshalValue(filter)
+		fmt.Print(obj, err)
+	}
+
 	var el bson.M
 	err := r.collection.FindOne(getContext(ctx), filter).Decode(&el)
 
@@ -234,14 +256,19 @@ func (r *MongoDbRepository[T]) Update(
 		filter["tenantId"] = uuid.MustParse(tenantId)
 	}
 
-	bson := structToBson(fields)
+	setBson := structToBson(fields)
 
 	if author := getContextHeader(ctx, "X-Author"); author != "" {
-		bson["updatedBy"] = author
-		bson["updatedAt"] = time.Now()
+		setBson["updatedBy"] = author
+		setBson["updatedAt"] = time.Now()
 	}
 
-	re, err := r.collection.UpdateOne(getContext(ctx), filter, map[string]interface{}{"$set": bson})
+	if os.Getenv("env") == "local" {
+		_, obj, err := bson.MarshalValue(filter)
+		fmt.Print(obj, err)
+	}
+
+	re, err := r.collection.UpdateOne(getContext(ctx), filter, map[string]interface{}{"$set": setBson})
 
 	if err != nil {
 		return err
