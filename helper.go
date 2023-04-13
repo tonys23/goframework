@@ -3,9 +3,11 @@ package goframework
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 func helperContext(c context.Context, filter map[string]interface{}, addfilter map[string]string) {
@@ -79,4 +81,22 @@ func helperContextKafka(c context.Context, addfilter map[string]string) []kafka.
 		fmt.Println("KFK")
 	}
 	return filter
+}
+
+func StructToBson(inputStruct interface{}) bson.M {
+	inputType := reflect.TypeOf(inputStruct)
+	inputValue := reflect.ValueOf(inputStruct)
+
+	output := bson.M{}
+
+	for i := 0; i < inputType.NumField(); i++ {
+		field := inputType.Field(i)
+		value := inputValue.Field(i)
+
+		if !reflect.DeepEqual(value.Interface(), reflect.Zero(field.Type).Interface()) {
+			output[field.Name] = value.Interface()
+		}
+	}
+
+	return output
 }
