@@ -87,7 +87,11 @@ func (gf *GoFramework) RegisterController(controller interface{}) {
 }
 
 func (gf *GoFramework) Start() error {
-	return gf.server.Run(":8081")
+	port := os.Getenv("port")
+	if port == "" {
+		port = "8081"
+	}
+	return gf.server.Run(":" + port)
 }
 
 // mongo
