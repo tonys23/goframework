@@ -41,7 +41,7 @@ func (r *MongoDbRepository[T]) GetAll(
 
 	if os.Getenv("env") == "local" {
 		_, obj, err := bson.MarshalValue(filter)
-		fmt.Print(obj, err)
+		fmt.Print(bson.Raw(obj), err)
 	}
 
 	cur, err := r.collection.Find(getContext(ctx), filter)
@@ -80,7 +80,7 @@ func (r *MongoDbRepository[T]) GetAllSkipTake(
 
 	if os.Getenv("env") == "local" {
 		_, obj, err := bson.MarshalValue(filter)
-		fmt.Print(obj, err)
+		fmt.Print(bson.Raw(obj), err)
 	}
 
 	cur, err := r.collection.Find(getContext(ctx), filter, op)
@@ -115,7 +115,7 @@ func (r *MongoDbRepository[T]) GetFirst(
 
 	if os.Getenv("env") == "local" {
 		_, obj, err := bson.MarshalValue(filter)
-		fmt.Print(obj, err)
+		fmt.Print(bson.Raw(obj), err)
 	}
 
 	err := r.collection.FindOne(getContext(ctx), filter).Decode(&el)
@@ -224,7 +224,7 @@ func (r *MongoDbRepository[T]) Replace(
 
 	if os.Getenv("env") == "local" {
 		_, obj, err := bson.MarshalValue(filter)
-		fmt.Print(obj, err)
+		fmt.Print(bson.Raw(obj), err)
 	}
 
 	var el bson.M
@@ -265,7 +265,7 @@ func (r *MongoDbRepository[T]) Update(
 
 	if os.Getenv("env") == "local" {
 		_, obj, err := bson.MarshalValue(filter)
-		fmt.Print(obj, err)
+		fmt.Print(bson.Raw(obj), err)
 	}
 
 	re, err := r.collection.UpdateOne(getContext(ctx), filter, map[string]interface{}{"$set": setBson})
