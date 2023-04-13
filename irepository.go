@@ -20,5 +20,5 @@ type IRepository[T interface{}] interface {
 		entity *T) error
 	Update(ctx context.Context,
 		filter map[string]interface{},
-		fields map[string]interface{}) error
+		fields interface{}) error
 }

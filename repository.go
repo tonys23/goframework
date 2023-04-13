@@ -228,18 +228,20 @@ func (r *MongoDbRepository[T]) Replace(
 func (r *MongoDbRepository[T]) Update(
 	ctx context.Context,
 	filter map[string]interface{},
-	fields map[string]interface{}) error {
+	fields interface{}) error {
 
 	if tenantId := getContextHeader(ctx, "X-Tenant-Id"); tenantId != "" {
 		filter["tenantId"] = uuid.MustParse(tenantId)
 	}
 
+	bson := structToBson(fields)
+
 	if author := getContextHeader(ctx, "X-Author"); author != "" {
-		fields["updatedBy"] = author
-		fields["updatedAt"] = time.Now()
+		bson["updatedBy"] = author
+		bson["updatedAt"] = time.Now()
 	}
 
-	re, err := r.collection.UpdateOne(getContext(ctx), filter, map[string]interface{}{"$set": fields})
+	re, err := r.collection.UpdateOne(getContext(ctx), filter, map[string]interface{}{"$set": bson})
 
 	if err != nil {
 		return err

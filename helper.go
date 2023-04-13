@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/gin-gonic/gin"
@@ -83,7 +84,7 @@ func helperContextKafka(c context.Context, addfilter map[string]string) []kafka.
 	return filter
 }
 
-func StructToBson(inputStruct interface{}) bson.M {
+func structToBson(inputStruct interface{}) bson.M {
 	inputType := reflect.TypeOf(inputStruct)
 	inputValue := reflect.ValueOf(inputStruct)
 
@@ -94,7 +95,7 @@ func StructToBson(inputStruct interface{}) bson.M {
 		value := inputValue.Field(i)
 
 		if !reflect.DeepEqual(value.Interface(), reflect.Zero(field.Type).Interface()) {
-			output[field.Name] = value.Interface()
+			output[strings.ToLower(field.Name)] = value.Interface()
 		}
 	}
 
