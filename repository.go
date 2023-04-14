@@ -247,7 +247,7 @@ func (r *MongoDbRepository[T]) Replace(
 		return err
 	}
 
-	_, err = r.collection.ReplaceOne(getContext(ctx), filter, bsonM)
+	_, err = r.collection.ReplaceOne(getContext(ctx), filter, bsonM, options.Replace().SetUpsert(true))
 	if err != nil {
 		return err
 	}
