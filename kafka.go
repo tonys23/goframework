@@ -2,7 +2,9 @@ package goframework
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
@@ -48,13 +50,17 @@ func (k *GoKafka) Consumer(topic string, fn ConsumerFunc) {
 			"group.id":          k.groupId,
 			"auto.offset.reset": kcs.AutoOffsetReset}
 
+		fmt.Fprintf(os.Stderr,
+			"%% Start consumer %s \n",
+			k.groupId)
+
 		consumer, err := kafka.NewConsumer(kc)
 		if err != nil {
 			log.Fatalln(err.Error())
 			panic(err)
 		}
 
-		err = consumer.SubscribeTopics([]string{kcs.Topic}, nil)
+		err = consumer.SubscribeTopics([]string{kcs.Topic}, rebalanceCallback)
 		if err != nil {
 			log.Fatalln(err.Error())
 			panic(err)
@@ -75,6 +81,33 @@ func (k *GoKafka) Consumer(topic string, fn ConsumerFunc) {
 		}
 
 	}(topic)
+}
+
+func rebalanceCallback(c *kafka.Consumer, event kafka.Event) error {
+
+	switch ev := event.(type) {
+	case kafka.AssignedPartitions:
+		fmt.Fprintf(os.Stderr,
+			"%% %s rebalance: %d new partition(s) assigned: %v\n",
+			c.GetRebalanceProtocol(), len(ev.Partitions),
+			ev.Partitions)
+
+		err := c.IncrementalAssign(ev.Partitions)
+		if err != nil {
+			panic(err)
+		}
+
+	case kafka.RevokedPartitions:
+		fmt.Fprintf(os.Stderr,
+			"%% %s rebalance: %d partition(s) revoked: %v\n",
+			c.GetRebalanceProtocol(), len(ev.Partitions),
+			ev.Partitions)
+		if c.AssignmentLost() {
+			fmt.Fprintf(os.Stderr, "%% Current assignment lost!\n")
+		}
+	}
+
+	return nil
 }
 
 func NewKafkaAdminClient(cm *kafka.ConfigMap) *kafka.AdminClient {
