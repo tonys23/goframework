@@ -46,11 +46,13 @@ func (k *GoKafka) Consumer(topic string, fn ConsumerFunc) {
 		}
 
 		kc := &kafka.ConfigMap{
-			"bootstrap.servers": k.server,
-			"group.id":          k.groupId,
-			"auto.offset.reset": kcs.AutoOffsetReset}
+			"bootstrap.servers":             k.server,
+			"group.id":                      k.groupId,
+			"auto.offset.reset":             kcs.AutoOffsetReset,
+			"partition.assignment.strategy": "cooperative-sticky",
+		}
 
-		fmt.Fprintf(os.Stderr,
+		fmt.Fprintf(os.Stdout,
 			"%% Start consumer %s \n",
 			k.groupId)
 
