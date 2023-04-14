@@ -30,18 +30,20 @@ func NewTelemetry(projectName string, endpoint string, apiKey string) *GoTelemet
 
 func (gt *GoTelemetry) run(gf *GoFramework) {
 
-	app, err := newrelic.NewApplication(
-		newrelic.ConfigAppName(gt.ProjectName),
-		newrelic.ConfigLicense(gt.ApiKey),
-		newrelic.ConfigCodeLevelMetricsEnabled(true),
-		newrelic.ConfigDistributedTracerEnabled(true),
-	)
+	if gt.ApiKey != "" {
+		app, err := newrelic.NewApplication(
+			newrelic.ConfigAppName(gt.ProjectName),
+			newrelic.ConfigLicense(gt.ApiKey),
+			newrelic.ConfigCodeLevelMetricsEnabled(true),
+			newrelic.ConfigDistributedTracerEnabled(true),
+		)
 
-	if err != nil {
-		panic(err)
+		if err != nil {
+			panic(err)
+		}
+
+		gf.nrApplication = &agentTelemetry{agent: app}
 	}
-
-	gf.nrApplication = &agentTelemetry{agent: app}
 }
 
 func (ag *agentTelemetry) gin() gin.HandlerFunc {
