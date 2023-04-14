@@ -113,7 +113,9 @@ func (gf *GoFramework) RegisterDbMongo(host string, user string, pass string, da
 func (gf *GoFramework) RegisterKafka(server string, groupId string) {
 	err := gf.ioc.Provide(func() *GoKafka {
 		kc := NewKafkaConfigMap(server, groupId)
-		kc.newMonitor(gf.nrApplication.getAgent())
+		if gf.nrApplication != nil {
+			kc.newMonitor(gf.nrApplication.getAgent())
+		}
 		return kc
 	})
 	if err != nil {

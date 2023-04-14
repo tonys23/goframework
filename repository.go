@@ -14,8 +14,14 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+type DataList[T interface{}] struct {
+	Data  []T
+	Total int64
+}
+
 type MongoDbRepository[T interface{}] struct {
 	collection *mongo.Collection
+	dataList   *DataList[T]
 }
 
 func NewMongoDbRepository[T interface{}](
@@ -25,6 +31,7 @@ func NewMongoDbRepository[T interface{}](
 	coll := db.Collection(strings.ToLower(reflect.TypeOf(r).Name()))
 	return &MongoDbRepository[T]{
 		collection: coll,
+		dataList:   &DataList[T]{},
 	}
 }
 
@@ -69,9 +76,10 @@ func (r *MongoDbRepository[T]) GetAllSkipTake(
 	ctx context.Context,
 	filter map[string]interface{},
 	skip int64,
-	take int64) (data *[]T, total int64) {
+	take int64) *DataList[T] {
 
-	result := []T{}
+	result := &DataList[T]{}
+
 	filterAggregator := make(map[string][]interface{})
 	filterAggregator["$and"] = append(filterAggregator["$and"], filter)
 
@@ -94,8 +102,8 @@ func (r *MongoDbRepository[T]) GetAllSkipTake(
 
 	mCtx := getContext(ctx)
 
-	total, err := r.collection.CountDocuments(mCtx, filterAggregator)
-	if err == nil && total > 0 {
+	result.Total, _ = r.collection.CountDocuments(mCtx, filterAggregator)
+	if result.Total > 0 {
 
 		cur, err := r.collection.Find(mCtx, filterAggregator, op)
 
@@ -108,11 +116,11 @@ func (r *MongoDbRepository[T]) GetAllSkipTake(
 			if err != nil {
 				panic(err)
 			}
-			result = append(result, el)
+			result.Data = append(result.Data, el)
 		}
 	}
 
-	return &result, total
+	return result
 }
 
 func (r *MongoDbRepository[T]) GetFirst(

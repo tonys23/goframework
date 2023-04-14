@@ -9,7 +9,7 @@ type IRepository[T interface{}] interface {
 		ctx context.Context,
 		filter map[string]interface{},
 		skip int64,
-		take int64) (data *[]T, total int64)
+		take int64) *DataList[T]
 	GetFirst(ctx context.Context,
 		filter map[string]interface{}) *T
 	Insert(ctx context.Context,
