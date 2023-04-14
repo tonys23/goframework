@@ -68,8 +68,13 @@ func (k *GoKafka) Consumer(topic string, fn ConsumerFunc) {
 
 		for {
 			msg, err := consumer.ReadMessage(-1)
-			transaction := k.nrapp.StartTransaction("kafka/consumer")
-			ctx := newrelic.NewContext(context.Background(), transaction)
+
+			ctx := context.Background()
+			transaction := &newrelic.Transaction{}
+			if k.nrapp != nil {
+				transaction = k.nrapp.StartTransaction("kafka/consumer")
+				ctx = newrelic.NewContext(ctx, transaction)
+			}
 
 			if err != nil {
 				panic(err)
@@ -77,7 +82,10 @@ func (k *GoKafka) Consumer(topic string, fn ConsumerFunc) {
 
 			kafkaCallFnWithResilence(ctx, msg, kc, *kcs, fn)
 			consumer.CommitMessage(msg)
-			transaction.End()
+
+			if k.nrapp != nil {
+				transaction.End()
+			}
 		}
 
 	}(topic)

@@ -69,8 +69,9 @@ func (r *MongoDbRepository[T]) GetAllSkipTake(
 	ctx context.Context,
 	filter map[string]interface{},
 	skip int64,
-	take int64) *[]T {
+	take int64) (data *[]T, total int64) {
 
+	result := []T{}
 	filterAggregator := make(map[string][]interface{})
 	filterAggregator["$and"] = append(filterAggregator["$and"], filter)
 
@@ -91,22 +92,27 @@ func (r *MongoDbRepository[T]) GetAllSkipTake(
 		fmt.Print(bson.Raw(obj), err)
 	}
 
-	cur, err := r.collection.Find(getContext(ctx), filterAggregator, op)
+	mCtx := getContext(ctx)
 
-	if err != nil {
-		panic(err)
-	}
-	result := []T{}
-	for cur.Next(ctx) {
-		var el T
-		err = cur.Decode(&el)
+	total, err := r.collection.CountDocuments(mCtx, filterAggregator)
+	if err == nil && total > 0 {
+
+		cur, err := r.collection.Find(mCtx, filterAggregator, op)
+
 		if err != nil {
 			panic(err)
 		}
-		result = append(result, el)
+		for cur.Next(ctx) {
+			var el T
+			err = cur.Decode(&el)
+			if err != nil {
+				panic(err)
+			}
+			result = append(result, el)
+		}
 	}
 
-	return &result
+	return &result, total
 }
 
 func (r *MongoDbRepository[T]) GetFirst(

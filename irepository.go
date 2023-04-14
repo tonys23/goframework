@@ -5,10 +5,11 @@ import "context"
 type IRepository[T interface{}] interface {
 	GetAll(ctx context.Context,
 		filter map[string]interface{}) *[]T
-	GetAllSkipTake(ctx context.Context,
+	GetAllSkipTake(
+		ctx context.Context,
 		filter map[string]interface{},
 		skip int64,
-		take int64) *[]T
+		take int64) (data *[]T, total int64)
 	GetFirst(ctx context.Context,
 		filter map[string]interface{}) *T
 	Insert(ctx context.Context,

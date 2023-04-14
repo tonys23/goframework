@@ -38,7 +38,9 @@ func NewGoFramework(opts ...GoFrameworkOptions) *GoFramework {
 	gf.ioc.Provide(newLog)
 	gf.ioc.Provide(func() gfAgentTelemetry { return gf.nrApplication })
 
-	gf.server.Use(gf.nrApplication.gin())
+	if gf.nrApplication != nil {
+		gf.server.Use(gf.nrApplication.gin())
+	}
 	err := gf.ioc.Provide(func() *gin.RouterGroup { return gf.server.Group("/") })
 	if err != nil {
 		log.Panic(err)
@@ -97,7 +99,10 @@ func (gf *GoFramework) Start() error {
 // mongo
 func (gf *GoFramework) RegisterDbMongo(host string, user string, pass string, database string) {
 
-	opts := options.Client().ApplyURI(host).SetAuth(options.Credential{Username: user, Password: pass}).SetMonitor(gf.nrApplication.mongoMonitor())
+	opts := options.Client().ApplyURI(host).SetAuth(options.Credential{Username: user, Password: pass})
+	if gf.nrApplication != nil {
+		opts = opts.SetMonitor(gf.nrApplication.mongoMonitor())
+	}
 
 	err := gf.ioc.Provide(func() *mongo.Database { return (newMongoClient(opts).Database(database)) })
 	if err != nil {
