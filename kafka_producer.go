@@ -69,7 +69,6 @@ func (kp *KafkaProducer[T]) Publish(ctx context.Context, msgs ...*T) error {
 	if err != nil {
 		return err
 	}
-	defer p.Close()
 
 	for _, m := range msgs {
 
@@ -109,6 +108,7 @@ func (kp *KafkaProducer[T]) Publish(ctx context.Context, msgs ...*T) error {
 					}
 				}
 			}
+			defer p.Close()
 		}()
 
 	}
