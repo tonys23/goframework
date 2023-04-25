@@ -253,7 +253,7 @@ func (r *MongoDbRepository[T]) Replace(
 	err := r.collection.FindOne(getContext(ctx), filter).Decode(&el)
 
 	if err == mongo.ErrNoDocuments {
-		return err
+		return r.Insert(ctx, entity)
 	}
 
 	bsonM, err := r.replaceDefaultParam(ctx, el, entity)
