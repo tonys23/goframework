@@ -50,6 +50,7 @@ func (k *GoKafka) Consumer(topic string, fn ConsumerFunc) {
 			"group.id":                      k.groupId,
 			"auto.offset.reset":             kcs.AutoOffsetReset,
 			"partition.assignment.strategy": "cooperative-sticky",
+			"enable.auto.commit":            false,
 		}
 
 		fmt.Fprintf(os.Stdout,

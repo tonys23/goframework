@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -29,6 +30,8 @@ func NewGoFramework(opts ...GoFrameworkOptions) *GoFramework {
 		configuration: initializeViper(),
 		server:        gin.Default(),
 	}
+
+	gf.server.Use(cors.Default())
 
 	for _, opt := range opts {
 		opt.run(gf)
