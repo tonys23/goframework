@@ -102,7 +102,12 @@ func (gf *GoFramework) Start() error {
 // mongo
 func (gf *GoFramework) RegisterDbMongo(host string, user string, pass string, database string) {
 
-	opts := options.Client().ApplyURI(host).SetAuth(options.Credential{Username: user, Password: pass})
+	opts := options.Client().ApplyURI(host)
+
+	if user != "" {
+		opts.SetAuth(options.Credential{Username: user, Password: pass})
+	}
+
 	if gf.nrApplication != nil {
 		opts = opts.SetMonitor(gf.nrApplication.mongoMonitor())
 	}
