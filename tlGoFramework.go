@@ -1,11 +1,14 @@
 package goframework
 
 import (
+	"crypto/tls"
 	"log"
 	"os"
+	"strconv"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 	"github.com/spf13/viper"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -118,6 +121,40 @@ func (gf *GoFramework) RegisterDbMongo(host string, user string, pass string, da
 	}
 }
 
+// Redis
+func (gf *GoFramework) RegisterRedis(address string, password string, db string) {
+
+	dbInt, err := strconv.Atoi(db)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	opts := &redis.Options{
+		Addr:     address,
+		Password: password,
+		DB:       dbInt,
+	}
+
+	if opts.Addr != "" && opts.Addr != "localhost:6379" {
+		opts.TLSConfig = &tls.Config{
+			InsecureSkipVerify: true,
+		}
+	}
+
+	err = gf.ioc.Provide(func() *redis.Client { return (newRedisClient(opts)) })
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+}
+
+func (gf *GoFramework) RegisterCache(constructor interface{}) {
+	err := gf.ioc.Provide(constructor)
+	if err != nil {
+		log.Fatalln(err)
+	}
+}
+
 func (gf *GoFramework) RegisterKafka(server string, groupId string) {
 	err := gf.ioc.Provide(func() *GoKafka {
 		kc := NewKafkaConfigMap(server, groupId)
@@ -131,6 +168,7 @@ func (gf *GoFramework) RegisterKafka(server string, groupId string) {
 	}
 }
 
+// Kafka
 func (gf *GoFramework) RegisterKafkaProducer(producer interface{}) {
 	err := gf.ioc.Provide(producer)
 	if err != nil {
