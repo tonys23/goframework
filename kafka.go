@@ -80,7 +80,8 @@ func (k *GoKafka) Consumer(topic string, fn ConsumerFunc) {
 			}
 
 			if err != nil {
-				panic(err)
+				log.Println(err.Error())
+				continue
 			}
 
 			kafkaCallFnWithResilence(ctx, msg, kc, *kcs, fn)
