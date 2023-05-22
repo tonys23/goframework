@@ -2,12 +2,16 @@ package goframework
 
 import (
 	"crypto/tls"
+	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt"
 	"github.com/redis/go-redis/v9"
 	"github.com/spf13/viper"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -26,6 +30,31 @@ type GoFrameworkOptions interface {
 	run(gf *GoFramework)
 }
 
+func AddTenant() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		tokenString := ctx.GetHeader("Authorization")
+		if tokenString == "" {
+			ctx.Request.Header.Add("X-Tenant-Id", "00000000-0000-0000-0000-000000000000")
+			return
+		}
+
+		tokenString = strings.Replace(tokenString, "Bearer ", "", 1)
+		token, _, err := new(jwt.Parser).ParseUnverified(tokenString, jwt.MapClaims{})
+		if err != nil {
+			ctx.AbortWithStatus(http.StatusUnauthorized)
+		}
+
+		if claims, ok := token.Claims.(jwt.MapClaims); ok {
+			if ctx.Request.Method == "POST" || ctx.Request.Method == "PUT" || ctx.Request.Method == "DELETE" {
+				ctx.Request.Header.Add("X-Author", fmt.Sprint(claims["name"]))
+				ctx.Request.Header.Add("X-Author-Id", fmt.Sprint(claims["sub"]))
+			}
+
+			ctx.Request.Header.Add("X-Tenant-Id", fmt.Sprint(claims["azp"]))
+		}
+	}
+}
+
 func NewGoFramework(opts ...GoFrameworkOptions) *GoFramework {
 
 	gf := &GoFramework{
@@ -34,7 +63,7 @@ func NewGoFramework(opts ...GoFrameworkOptions) *GoFramework {
 		server:        gin.Default(),
 	}
 
-	gf.server.Use(cors.Default())
+	gf.server.Use(cors.Default(), AddTenant())
 
 	for _, opt := range opts {
 		opt.run(gf)

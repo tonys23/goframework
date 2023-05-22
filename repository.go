@@ -14,6 +14,12 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+type LogData struct {
+	Author   string
+	AuthorId uuid.UUID
+	ActionAt time.Time
+}
+
 type DataList[T interface{}] struct {
 	Data  []T
 	Total int64
@@ -164,12 +170,17 @@ func (r *MongoDbRepository[T]) insertDefaultParam(ctx context.Context, entity *T
 	if err != nil {
 		return nil, err
 	}
-	helperContext(ctx, bsonM, map[string]string{"createdBy": "X-Author", "updatedBy": "X-Author"})
+	// helperContext(ctx, bsonM, map[string]string{"createdBy": "X-Author", "updatedBy": "X-Author"})
 	if tenantid := getContextHeader(ctx, "X-Tenant-Id"); tenantid != "" {
 		bsonM["tenantId"] = uuid.MustParse(tenantid)
 	}
-	bsonM["createdAt"] = time.Now()
-	bsonM["updatedAt"] = time.Now()
+
+	var history = make(map[string]interface{})
+	history["actionAt"] = time.Now()
+	helperContext(ctx, history, map[string]string{"author": "X-Author", "authorId": "X-Author-Id"})
+
+	bsonM["created"] = history
+	bsonM["updated"] = history
 
 	return bsonM, nil
 }
@@ -186,11 +197,19 @@ func (r *MongoDbRepository[T]) replaceDefaultParam(ctx context.Context, old bson
 		return nil, err
 	}
 
-	bsonM["tenantId"] = old["tenantId"]
-	bsonM["createdAt"] = old["createdAt"]
-	bsonM["createdBy"] = old["createdBy"]
-	bsonM["updatedAt"] = time.Now()
-	bsonM["updatedBy"] = getContextHeader(ctx, "X-Author")
+	// bsonM["tenantId"] = old["tenantId"]
+	// bsonM["createdAt"] = old["createdAt"]
+	// bsonM["createdBy"] = old["createdBy"]
+	// bsonM["updatedAt"] = time.Now()
+	// bsonM["updatedBy"] = getContextHeader(ctx, "X-Author")
+
+	var history = make(map[string]interface{})
+	history["actionAt"] = time.Now()
+	helperContext(ctx, history, map[string]string{"author": "X-Author", "authorId": "X-Author-Id"})
+
+	bsonM["created"] = old["created"]
+	bsonM["updated"] = history
+
 	return bsonM, nil
 }
 
@@ -279,11 +298,10 @@ func (r *MongoDbRepository[T]) Update(
 	}
 
 	setBson := structToBson(fields)
-
-	if author := getContextHeader(ctx, "X-Author"); author != "" {
-		setBson["updatedBy"] = author
-		setBson["updatedAt"] = time.Now()
-	}
+	var history = make(map[string]interface{})
+	history["actionAt"] = time.Now()
+	helperContext(ctx, history, map[string]string{"author": "X-Author", "authorId": "X-Author-Id"})
+	setBson["updated"] = history
 
 	if os.Getenv("env") == "local" {
 		_, obj, err := bson.MarshalValue(filter)

@@ -63,6 +63,7 @@ func (kp *KafkaProducer[T]) Publish(ctx context.Context, msgs ...*T) error {
 		map[string]string{
 			"X-Tenant-Id":      "X-Tenant-Id",
 			"X-Author":         "X-Author",
+			"X-Author-Id":      "X-Author-Id",
 			"X-Correlation-Id": "X-Correlation-Id"})
 
 	p, err := kafka.NewProducer(kp.kcm)
