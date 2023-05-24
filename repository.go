@@ -207,6 +207,7 @@ func (r *MongoDbRepository[T]) replaceDefaultParam(ctx context.Context, old bson
 	history["actionAt"] = time.Now()
 	helperContext(ctx, history, map[string]string{"author": "X-Author", "authorId": "X-Author-Id"})
 
+	bsonM["tenantId"] = old["tenantId"]
 	bsonM["created"] = old["created"]
 	bsonM["updated"] = history
 
