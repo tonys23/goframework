@@ -43,7 +43,8 @@ func NewMongoDbRepository[T interface{}](
 
 func (r *MongoDbRepository[T]) GetAll(
 	ctx context.Context,
-	filter map[string]interface{}) *[]T {
+	filter map[string]interface{},
+	optsFind ...*options.FindOptions) *[]T {
 
 	filterAggregator := make(map[string][]interface{})
 	filterAggregator["$and"] = append(filterAggregator["$and"], filter)
@@ -61,7 +62,7 @@ func (r *MongoDbRepository[T]) GetAll(
 		fmt.Print(bson.Raw(obj), err)
 	}
 
-	cur, err := r.collection.Find(getContext(ctx), filterAggregator)
+	cur, err := r.collection.Find(getContext(ctx), filterAggregator, optsFind...)
 	if err != nil {
 		panic(err)
 	}
@@ -82,7 +83,8 @@ func (r *MongoDbRepository[T]) GetAllSkipTake(
 	ctx context.Context,
 	filter map[string]interface{},
 	skip int64,
-	take int64) *DataList[T] {
+	take int64,
+	optsFind ...*options.FindOptions) *DataList[T] {
 
 	result := &DataList[T]{}
 
@@ -97,9 +99,14 @@ func (r *MongoDbRepository[T]) GetAllSkipTake(
 		})
 	}
 
+	opts := make([]*options.FindOptions, 0)
+
 	op := options.Find()
 	op.SetSkip(skip)
 	op.SetLimit(take)
+
+	opts = append(opts, op)
+	opts = append(opts, optsFind...)
 
 	if os.Getenv("env") == "local" {
 		_, obj, err := bson.MarshalValue(filterAggregator)
@@ -111,7 +118,7 @@ func (r *MongoDbRepository[T]) GetAllSkipTake(
 	result.Total, _ = r.collection.CountDocuments(mCtx, filterAggregator)
 	if result.Total > 0 {
 
-		cur, err := r.collection.Find(mCtx, filterAggregator, op)
+		cur, err := r.collection.Find(mCtx, filterAggregator, opts...)
 
 		if err != nil {
 			panic(err)

@@ -1,15 +1,21 @@
 package goframework
 
-import "context"
+import (
+	"context"
+
+	"go.mongodb.org/mongo-driver/mongo/options"
+)
 
 type IRepository[T interface{}] interface {
 	GetAll(ctx context.Context,
-		filter map[string]interface{}) *[]T
+		filter map[string]interface{},
+		optsFind ...*options.FindOptions) *[]T
 	GetAllSkipTake(
 		ctx context.Context,
 		filter map[string]interface{},
 		skip int64,
-		take int64) *DataList[T]
+		take int64,
+		optsFind ...*options.FindOptions) *DataList[T]
 	GetFirst(ctx context.Context,
 		filter map[string]interface{}) *T
 	Insert(ctx context.Context,
