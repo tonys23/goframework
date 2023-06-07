@@ -53,6 +53,7 @@ func (r *MongoDbRepository[T]) GetAll(
 		filterAggregator["$and"] = append(filterAggregator["$and"], map[string]interface{}{"$or": bson.A{
 			bson.D{{"tenantId", uuid.MustParse(tenantId)}},
 			bson.D{{"tenantId", uuid.MustParse("00000000-0000-0000-0000-000000000000")}},
+			bson.D{{"active", true}},
 		},
 		})
 	}
@@ -95,6 +96,7 @@ func (r *MongoDbRepository[T]) GetAllSkipTake(
 		filterAggregator["$and"] = append(filterAggregator["$and"], map[string]interface{}{"$or": bson.A{
 			bson.D{{"tenantId", uuid.MustParse(tenantId)}},
 			bson.D{{"tenantId", uuid.MustParse("00000000-0000-0000-0000-000000000000")}},
+			bson.D{{"active", true}},
 		},
 		})
 	}
@@ -145,6 +147,7 @@ func (r *MongoDbRepository[T]) GetFirst(
 		filter["$or"] = bson.A{
 			bson.D{{"tenantId", uuid.MustParse(tenantId)}},
 			bson.D{{"tenantId", uuid.MustParse("00000000-0000-0000-0000-000000000000")}},
+			bson.D{{"active", true}},
 		}
 	}
 
@@ -188,6 +191,7 @@ func (r *MongoDbRepository[T]) insertDefaultParam(ctx context.Context, entity *T
 
 	bsonM["created"] = history
 	bsonM["updated"] = history
+	bsonM["active"] = true
 
 	return bsonM, nil
 }
@@ -204,12 +208,6 @@ func (r *MongoDbRepository[T]) replaceDefaultParam(ctx context.Context, old bson
 		return nil, err
 	}
 
-	// bsonM["tenantId"] = old["tenantId"]
-	// bsonM["createdAt"] = old["createdAt"]
-	// bsonM["createdBy"] = old["createdBy"]
-	// bsonM["updatedAt"] = time.Now()
-	// bsonM["updatedBy"] = getContextHeader(ctx, "X-Author")
-
 	var history = make(map[string]interface{})
 	history["actionAt"] = time.Now()
 	helperContext(ctx, history, map[string]string{"author": "X-Author", "authorId": "X-Author-Id"})
@@ -217,6 +215,7 @@ func (r *MongoDbRepository[T]) replaceDefaultParam(ctx context.Context, old bson
 	bsonM["tenantId"] = old["tenantId"]
 	bsonM["created"] = old["created"]
 	bsonM["updated"] = history
+	bsonM["active"] = old["active"]
 
 	return bsonM, nil
 }
@@ -324,6 +323,63 @@ func (r *MongoDbRepository[T]) Update(
 
 	if re.MatchedCount == 0 {
 		return fmt.Errorf("MatchedCountZero")
+	}
+
+	return nil
+}
+
+func (r *MongoDbRepository[T]) Delete(
+	ctx context.Context,
+	filter map[string]interface{}) error {
+
+	if tenantId := getContextHeader(ctx, "X-Tenant-Id"); tenantId != "" {
+		filter["$or"] = bson.A{
+			bson.D{{"tenantId", uuid.MustParse(tenantId)}},
+		}
+	}
+
+	if os.Getenv("env") == "local" {
+		_, obj, err := bson.MarshalValue(filter)
+		fmt.Print(bson.Raw(obj), err)
+	}
+
+	setBson := bson.M{"active": false}
+	re, err := r.collection.UpdateOne(getContext(ctx), filter, map[string]interface{}{"$set": setBson})
+
+	if err != nil {
+		return err
+	}
+
+	if re.MatchedCount == 0 {
+		return fmt.Errorf("MatchedCountZero")
+	}
+
+	return nil
+}
+
+func (r *MongoDbRepository[T]) DeleteForce(
+	ctx context.Context,
+	filter map[string]interface{}) error {
+
+	if tenantId := getContextHeader(ctx, "X-Tenant-Id"); tenantId != "" {
+		filter["$or"] = bson.A{
+			bson.D{{"tenantId", uuid.MustParse(tenantId)}},
+		}
+	}
+
+	if os.Getenv("env") == "local" {
+		_, obj, err := bson.MarshalValue(filter)
+		fmt.Print(bson.Raw(obj), err)
+	}
+
+	_, err := r.collection.DeleteOne(getContext(ctx), filter)
+
+	if err == mongo.ErrNoDocuments {
+		return nil
+	}
+
+	if err != nil {
+		return err
 	}
 
 	return nil

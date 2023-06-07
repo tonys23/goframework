@@ -3,7 +3,6 @@ package goframework
 import (
 	"context"
 	"fmt"
-	"log"
 	"reflect"
 	"time"
 
@@ -67,13 +66,9 @@ func uuidDecodeValue(dc bsoncodec.DecodeContext, vr bsonrw.ValueReader, val refl
 	return nil
 }
 
-func newMongoClient(opts *options.ClientOptions) *mongo.Client {
+func newMongoClient(opts *options.ClientOptions) (*mongo.Client, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	client, err := mongo.Connect(ctx, opts.SetRegistry(mongoRegistry))
-	if err != nil {
-		log.Fatalln("newMongoClient : " + err.Error())
-		panic(err)
-	}
-	return client
+	return mongo.Connect(ctx, opts.SetRegistry(mongoRegistry))
+
 }

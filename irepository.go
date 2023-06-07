@@ -28,4 +28,8 @@ type IRepository[T interface{}] interface {
 	Update(ctx context.Context,
 		filter map[string]interface{},
 		fields interface{}) error
+	Delete(ctx context.Context,
+		filter map[string]interface{}) error
+	DeleteForce(ctx context.Context,
+		filter map[string]interface{}) error
 }

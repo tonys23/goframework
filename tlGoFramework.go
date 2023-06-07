@@ -1,6 +1,7 @@
 package goframework
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"log"
@@ -16,6 +17,7 @@ import (
 	"github.com/spf13/viper"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/mongo/readpref"
 	"go.uber.org/dig"
 )
 
@@ -24,6 +26,7 @@ type GoFramework struct {
 	configuration *viper.Viper
 	server        *gin.Engine
 	nrApplication gfAgentTelemetry
+	healthCheck   []func() (string, bool)
 }
 
 type GoFrameworkOptions interface {
@@ -61,6 +64,7 @@ func NewGoFramework(opts ...GoFrameworkOptions) *GoFramework {
 		ioc:           dig.New(),
 		configuration: initializeViper(),
 		server:        gin.Default(),
+		healthCheck:   make([]func() (string, bool), 0),
 	}
 
 	gf.server.Use(cors.Default(), AddTenant())
@@ -72,6 +76,20 @@ func NewGoFramework(opts ...GoFrameworkOptions) *GoFramework {
 	gf.ioc.Provide(initializeViper)
 	gf.ioc.Provide(newLog)
 	gf.ioc.Provide(func() gfAgentTelemetry { return gf.nrApplication })
+
+	gf.server.GET("/health", func(ctx *gin.Context) {
+
+		list := make(map[string]bool)
+		httpCode := http.StatusOK
+		for _, item := range gf.healthCheck {
+			name, status := item()
+			list[name] = status
+			if !status {
+				httpCode = http.StatusServiceUnavailable
+			}
+		}
+		ctx.JSON(httpCode, list)
+	})
 
 	if gf.nrApplication != nil {
 		gf.server.Use(gf.nrApplication.gin())
@@ -104,14 +122,14 @@ func (gf *GoFramework) GetConfig(key string) string {
 func (gf *GoFramework) RegisterRepository(constructor interface{}) {
 	err := gf.ioc.Provide(constructor)
 	if err != nil {
-		log.Fatalln(err)
+		panic(err)
 	}
 }
 
 func (gf *GoFramework) RegisterApplication(application interface{}) {
 	err := gf.ioc.Provide(application)
 	if err != nil {
-		log.Fatalln(err)
+		panic(err)
 	}
 }
 
@@ -119,7 +137,7 @@ func (gf *GoFramework) RegisterApplication(application interface{}) {
 func (gf *GoFramework) RegisterController(controller interface{}) {
 	err := gf.ioc.Invoke(controller)
 	if err != nil {
-		log.Fatalln(err)
+		panic(err)
 	}
 }
 
@@ -144,9 +162,29 @@ func (gf *GoFramework) RegisterDbMongo(host string, user string, pass string, da
 		opts = opts.SetMonitor(gf.nrApplication.mongoMonitor())
 	}
 
-	err := gf.ioc.Provide(func() *mongo.Database { return (newMongoClient(opts).Database(database)) })
+	err := gf.ioc.Provide(func() *mongo.Database {
+		cli, err := newMongoClient(opts)
+		if err != nil {
+			return nil
+		}
+		return cli.Database(database)
+	})
+
+	gf.healthCheck = append(gf.healthCheck, func() (string, bool) {
+		serviceName := "MDB"
+		cli, err := newMongoClient(opts)
+		if err != nil {
+			return serviceName, false
+		}
+
+		if err := cli.Ping(context.Background(), readpref.Nearest()); err != nil {
+			return serviceName, false
+		}
+		return serviceName, true
+	})
+
 	if err != nil {
-		log.Fatalln(err)
+		panic(err)
 	}
 }
 
@@ -155,7 +193,7 @@ func (gf *GoFramework) RegisterRedis(address string, password string, db string)
 
 	dbInt, err := strconv.Atoi(db)
 	if err != nil {
-		log.Fatalln(err)
+		panic(err)
 	}
 
 	opts := &redis.Options{
@@ -170,17 +208,29 @@ func (gf *GoFramework) RegisterRedis(address string, password string, db string)
 		}
 	}
 
+	gf.healthCheck = append(gf.healthCheck, func() (string, bool) {
+		serviceName := "RDS"
+		cli := newRedisClient(opts)
+		if cli == nil {
+			return serviceName, false
+		}
+
+		if _, err := cli.Ping(context.Background()).Result(); err != nil {
+			return serviceName, false
+		}
+		return serviceName, true
+	})
+
 	err = gf.ioc.Provide(func() *redis.Client { return (newRedisClient(opts)) })
 	if err != nil {
-		log.Fatalln(err)
+		panic(err)
 	}
-
 }
 
 func (gf *GoFramework) RegisterCache(constructor interface{}) {
 	err := gf.ioc.Provide(constructor)
 	if err != nil {
-		log.Fatalln(err)
+		panic(err)
 	}
 }
 
@@ -193,7 +243,7 @@ func (gf *GoFramework) RegisterKafka(server string, groupId string) {
 		return kc
 	})
 	if err != nil {
-		log.Fatalln(err)
+		panic(err)
 	}
 }
 
@@ -201,13 +251,13 @@ func (gf *GoFramework) RegisterKafka(server string, groupId string) {
 func (gf *GoFramework) RegisterKafkaProducer(producer interface{}) {
 	err := gf.ioc.Provide(producer)
 	if err != nil {
-		log.Fatalln(err)
+		panic(err)
 	}
 }
 
 func (gf *GoFramework) RegisterKafkaConsumer(consumer interface{}) {
 	err := gf.ioc.Invoke(consumer)
 	if err != nil {
-		log.Fatalln(err)
+		panic(err)
 	}
 }
