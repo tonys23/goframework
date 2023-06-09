@@ -149,6 +149,13 @@ func (gf *GoFramework) Start() error {
 	return gf.server.Run(":" + port)
 }
 
+func (gf *GoFramework) Invoke(function interface{}) {
+	err := gf.ioc.Invoke(function)
+	if err != nil {
+		panic(err)
+	}
+}
+
 // mongo
 func (gf *GoFramework) RegisterDbMongo(host string, user string, pass string, database string) {
 
