@@ -17,7 +17,7 @@ func helperContext(c context.Context, filter map[string]interface{}, addfilter m
 		for k, v := range addfilter {
 			value := string(c.Request.Header.Get(v))
 			if value != "" {
-				filter[k] = string(c.Request.Header.Get(v))
+				filter[k] = value
 			}
 		}
 	case *ConsumerContext:
@@ -30,7 +30,13 @@ func helperContext(c context.Context, filter map[string]interface{}, addfilter m
 			}
 		}
 	default:
-		fmt.Println("KFK")
+		for k, v := range addfilter {
+			value := fmt.Sprint(c.Value(v))
+			if value != "" {
+				filter[k] = value
+				break
+			}
+		}
 	}
 }
 
@@ -46,7 +52,7 @@ func getContextHeader(c context.Context, key string) string {
 			}
 		}
 	default:
-		fmt.Println("KFK")
+		return fmt.Sprint(c.Value(key))
 	}
 	return ""
 }
@@ -79,7 +85,9 @@ func helperContextKafka(c context.Context, addfilter map[string]string) []kafka.
 			}
 		}
 	default:
-		fmt.Println("KFK")
+		for k, v := range addfilter {
+			filter = append(filter, kafka.Header{Key: k, Value: []byte(fmt.Sprint(c.Value(v)))})
+		}
 	}
 	return filter
 }
