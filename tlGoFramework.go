@@ -109,7 +109,7 @@ func initializeViper() *viper.Viper {
 	v.SetConfigType("json")
 	v.SetConfigName(os.Getenv("env"))
 	if err := v.ReadInConfig(); err != nil {
-		panic(err)
+		log.Panic(err)
 	}
 	return v
 }
@@ -122,14 +122,14 @@ func (gf *GoFramework) GetConfig(key string) string {
 func (gf *GoFramework) RegisterRepository(constructor interface{}) {
 	err := gf.ioc.Provide(constructor)
 	if err != nil {
-		panic(err)
+		log.Panic(err)
 	}
 }
 
 func (gf *GoFramework) RegisterApplication(application interface{}) {
 	err := gf.ioc.Provide(application)
 	if err != nil {
-		panic(err)
+		log.Panic(err)
 	}
 }
 
@@ -137,7 +137,7 @@ func (gf *GoFramework) RegisterApplication(application interface{}) {
 func (gf *GoFramework) RegisterController(controller interface{}) {
 	err := gf.ioc.Invoke(controller)
 	if err != nil {
-		panic(err)
+		log.Panic(err)
 	}
 }
 
@@ -152,7 +152,7 @@ func (gf *GoFramework) Start() error {
 func (gf *GoFramework) Invoke(function interface{}) {
 	err := gf.ioc.Invoke(function)
 	if err != nil {
-		panic(err)
+		log.Panic(err)
 	}
 }
 
@@ -191,7 +191,7 @@ func (gf *GoFramework) RegisterDbMongo(host string, user string, pass string, da
 	})
 
 	if err != nil {
-		panic(err)
+		log.Panic(err)
 	}
 }
 
@@ -200,7 +200,7 @@ func (gf *GoFramework) RegisterRedis(address string, password string, db string)
 
 	dbInt, err := strconv.Atoi(db)
 	if err != nil {
-		panic(err)
+		log.Panic(err)
 	}
 
 	opts := &redis.Options{
@@ -230,14 +230,14 @@ func (gf *GoFramework) RegisterRedis(address string, password string, db string)
 
 	err = gf.ioc.Provide(func() *redis.Client { return (newRedisClient(opts)) })
 	if err != nil {
-		panic(err)
+		log.Panic(err)
 	}
 }
 
 func (gf *GoFramework) RegisterCache(constructor interface{}) {
 	err := gf.ioc.Provide(constructor)
 	if err != nil {
-		panic(err)
+		log.Panic(err)
 	}
 }
 
@@ -250,7 +250,7 @@ func (gf *GoFramework) RegisterKafka(server string, groupId string) {
 		return kc
 	})
 	if err != nil {
-		panic(err)
+		log.Panic(err)
 	}
 }
 
@@ -258,13 +258,13 @@ func (gf *GoFramework) RegisterKafka(server string, groupId string) {
 func (gf *GoFramework) RegisterKafkaProducer(producer interface{}) {
 	err := gf.ioc.Provide(producer)
 	if err != nil {
-		panic(err)
+		log.Panic(err)
 	}
 }
 
 func (gf *GoFramework) RegisterKafkaConsumer(consumer interface{}) {
 	err := gf.ioc.Invoke(consumer)
 	if err != nil {
-		panic(err)
+		log.Panic(err)
 	}
 }
