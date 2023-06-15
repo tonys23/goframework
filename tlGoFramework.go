@@ -180,6 +180,12 @@ func (gf *GoFramework) RegisterDbMongo(host string, user string, pass string, da
 	gf.healthCheck = append(gf.healthCheck, func() (string, bool) {
 		serviceName := "MDB"
 		cli, err := newMongoClient(opts)
+		defer func() {
+			if err = cli.Disconnect(context.TODO()); err != nil {
+				panic(err)
+			}
+		}()
+
 		if err != nil {
 			return serviceName, false
 		}
