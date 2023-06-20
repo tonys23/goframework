@@ -403,5 +403,11 @@ func (r *MongoDbRepository[T]) Aggregate(ctx context.Context, pipeline []interfa
 	}
 
 	filter = append(filter, pipeline...)
+
+	if os.Getenv("env") == "local" {
+		_, obj, err := bson.MarshalValue(filter)
+		fmt.Print(bson.Raw(obj), err)
+	}
+
 	return r.collection.Aggregate(ctx, filter)
 }
