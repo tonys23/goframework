@@ -384,3 +384,7 @@ func (r *MongoDbRepository[T]) DeleteForce(
 
 	return nil
 }
+
+func (r *MongoDbRepository[T]) Aggregate(ctx context.Context, pipeline interface{}) (*mongo.Cursor, error) {
+	return r.collection.Aggregate(ctx, pipeline)
+}

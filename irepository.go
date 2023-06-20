@@ -3,6 +3,7 @@ package goframework
 import (
 	"context"
 
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
@@ -32,4 +33,6 @@ type IRepository[T interface{}] interface {
 		filter map[string]interface{}) error
 	DeleteForce(ctx context.Context,
 		filter map[string]interface{}) error
+	Aggregate(ctx context.Context,
+		pipeline interface{}) (*mongo.Cursor, error)
 }
