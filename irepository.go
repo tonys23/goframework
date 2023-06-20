@@ -34,5 +34,5 @@ type IRepository[T interface{}] interface {
 	DeleteForce(ctx context.Context,
 		filter map[string]interface{}) error
 	Aggregate(ctx context.Context,
-		pipeline interface{}) (*mongo.Cursor, error)
+		pipeline []interface{}) (*mongo.Cursor, error)
 }
