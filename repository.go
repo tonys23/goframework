@@ -385,6 +385,23 @@ func (r *MongoDbRepository[T]) DeleteForce(
 	return nil
 }
 
-func (r *MongoDbRepository[T]) Aggregate(ctx context.Context, pipeline interface{}) (*mongo.Cursor, error) {
-	return r.collection.Aggregate(ctx, pipeline)
+func (r *MongoDbRepository[T]) Aggregate(ctx context.Context, pipeline []interface{}) (*mongo.Cursor, error) {
+	filter := bson.A{
+		bson.D{
+			{"$match",
+				bson.D{
+					{"$or",
+						bson.A{
+							bson.D{{"tenantId", uuid.MustParse("00000000-0000-0000-0000-000000000000")}},
+							bson.D{{"tenantId", uuid.MustParse(getContextHeader(ctx, "X-Tenant-Id"))}},
+						},
+					},
+					{"active", true},
+				},
+			},
+		},
+	}
+
+	filter = append(filter, pipeline...)
+	return r.collection.Aggregate(ctx, filter)
 }
