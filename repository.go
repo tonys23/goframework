@@ -53,9 +53,9 @@ func (r *MongoDbRepository[T]) GetAll(
 		filterAggregator["$and"] = append(filterAggregator["$and"], map[string]interface{}{"$or": bson.A{
 			bson.D{{"tenantId", uuid.MustParse(tenantId)}},
 			bson.D{{"tenantId", uuid.MustParse("00000000-0000-0000-0000-000000000000")}},
-			bson.D{{"active", true}},
 		},
 		})
+		filterAggregator["$and"] = append(filterAggregator["$and"], bson.D{{"active", true}})
 	}
 
 	if os.Getenv("env") == "local" {
@@ -147,8 +147,8 @@ func (r *MongoDbRepository[T]) GetFirst(
 		filter["$or"] = bson.A{
 			bson.D{{"tenantId", uuid.MustParse(tenantId)}},
 			bson.D{{"tenantId", uuid.MustParse("00000000-0000-0000-0000-000000000000")}},
-			bson.D{{"active", true}},
 		}
+		filter["active"] = true
 	}
 
 	if os.Getenv("env") == "local" {
