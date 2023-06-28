@@ -67,7 +67,12 @@ func NewGoFramework(opts ...GoFrameworkOptions) *GoFramework {
 		healthCheck:   make([]func() (string, bool), 0),
 	}
 
-	gf.server.Use(cors.Default(), AddTenant())
+	cconfig := cors.DefaultConfig()
+	cconfig.AllowAllOrigins = true
+	cconfig.AllowHeaders = []string{"*"}
+
+	corsconfig := cors.New(cconfig)
+	gf.server.Use(corsconfig, AddTenant())
 
 	for _, opt := range opts {
 		opt.run(gf)
