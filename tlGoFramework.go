@@ -53,7 +53,7 @@ func AddTenant() gin.HandlerFunc {
 				ctx.Request.Header.Add("X-Author-Id", fmt.Sprint(claims["sub"]))
 			}
 
-			ctx.Request.Header.Add("X-Tenant-Id", fmt.Sprint(claims["azp"]))
+			ctx.Request.Header.Add("X-Tenant-Id", fmt.Sprint(claims["tenant_id"]))
 		}
 	}
 }
