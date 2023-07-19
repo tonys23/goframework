@@ -69,7 +69,7 @@ func NewGoFramework(opts ...GoFrameworkOptions) *GoFramework {
 
 	cconfig := cors.DefaultConfig()
 	cconfig.AllowAllOrigins = true
-	cconfig.AllowHeaders = []string{"*"}
+	cconfig.AllowHeaders = []string{"*", "Authorization"}
 
 	corsconfig := cors.New(cconfig)
 	gf.server.Use(corsconfig, AddTenant())
