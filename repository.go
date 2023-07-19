@@ -96,9 +96,9 @@ func (r *MongoDbRepository[T]) GetAllSkipTake(
 		filterAggregator["$and"] = append(filterAggregator["$and"], map[string]interface{}{"$or": bson.A{
 			bson.D{{"tenantId", uuid.MustParse(tenantId)}},
 			bson.D{{"tenantId", uuid.MustParse("00000000-0000-0000-0000-000000000000")}},
-			bson.D{{"active", true}},
 		},
 		})
+		filterAggregator["$and"] = append(filterAggregator["$and"], bson.D{{"active", true}})
 	}
 
 	opts := make([]*options.FindOptions, 0)
