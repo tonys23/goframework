@@ -35,4 +35,7 @@ type IRepository[T interface{}] interface {
 		filter map[string]interface{}) error
 	Aggregate(ctx context.Context,
 		pipeline []interface{}) (*mongo.Cursor, error)
+	Count(ctx context.Context,
+		filter map[string]interface{},
+		optsFind ...*options.CountOptions) int64
 }

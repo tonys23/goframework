@@ -411,3 +411,30 @@ func (r *MongoDbRepository[T]) Aggregate(ctx context.Context, pipeline []interfa
 
 	return r.collection.Aggregate(ctx, filter)
 }
+
+func (r *MongoDbRepository[T]) Count(ctx context.Context,
+	filter map[string]interface{}, optsFind ...*options.CountOptions) int64 {
+	filterAggregator := make(map[string][]interface{})
+	filterAggregator["$and"] = append(filterAggregator["$and"], filter)
+
+	if tenantId := getContextHeader(ctx, "X-Tenant-Id"); tenantId != "" {
+		filterAggregator["$and"] = append(filterAggregator["$and"], map[string]interface{}{"$or": bson.A{
+			bson.D{{"tenantId", uuid.MustParse(tenantId)}},
+			bson.D{{"tenantId", uuid.MustParse("00000000-0000-0000-0000-000000000000")}},
+		},
+		})
+		filterAggregator["$and"] = append(filterAggregator["$and"], bson.D{{"active", true}})
+	}
+
+	if os.Getenv("env") == "local" {
+		_, obj, err := bson.MarshalValue(filterAggregator)
+		fmt.Print(bson.Raw(obj), err)
+	}
+
+	count, err := r.collection.CountDocuments(getContext(ctx), filterAggregator, optsFind...)
+	if err != nil {
+		panic(err)
+	}
+
+	return count
+}
