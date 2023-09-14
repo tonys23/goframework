@@ -47,7 +47,7 @@ func (r *MongoDbRepository[T]) GetAll(
 	optsFind ...*options.FindOptions) *[]T {
 
 	filterAggregator := make(map[string][]interface{})
-	filterAggregator["$and"] = append(filterAggregator["$and"], filter)
+	filterAggregator["$and"] = append(filterAggregator["$and"], filter, bson.D{{"active", true}})
 
 	if tenantId := getContextHeader(ctx, "X-Tenant-Id"); tenantId != "" {
 		filterAggregator["$and"] = append(filterAggregator["$and"], map[string]interface{}{"$or": bson.A{
@@ -55,7 +55,7 @@ func (r *MongoDbRepository[T]) GetAll(
 			bson.D{{"tenantId", uuid.MustParse("00000000-0000-0000-0000-000000000000")}},
 		},
 		})
-		filterAggregator["$and"] = append(filterAggregator["$and"], bson.D{{"active", true}})
+		filterAggregator["$and"] = append(filterAggregator["$and"])
 	}
 
 	if os.Getenv("env") == "local" {
@@ -386,20 +386,35 @@ func (r *MongoDbRepository[T]) DeleteForce(
 }
 
 func (r *MongoDbRepository[T]) Aggregate(ctx context.Context, pipeline []interface{}) (*mongo.Cursor, error) {
-	filter := bson.A{
-		bson.D{
-			{"$match",
-				bson.D{
-					{"$or",
-						bson.A{
-							bson.D{{"tenantId", uuid.MustParse("00000000-0000-0000-0000-000000000000")}},
-							bson.D{{"tenantId", uuid.MustParse(getContextHeader(ctx, "X-Tenant-Id"))}},
+
+	filter := bson.A{}
+
+	if tenantId := getContextHeader(ctx, "X-Tenant-Id"); tenantId != "" {
+		filter = bson.A{
+			bson.D{
+				{"$match",
+					bson.D{
+						{"$or",
+							bson.A{
+								bson.D{{"tenantId", uuid.MustParse("00000000-0000-0000-0000-000000000000")}},
+								bson.D{{"tenantId", uuid.MustParse(getContextHeader(ctx, "X-Tenant-Id"))}},
+							},
 						},
+						{"active", true},
 					},
-					{"active", true},
 				},
 			},
-		},
+		}
+	} else {
+		filter = bson.A{
+			bson.D{
+				{"$match",
+					bson.D{
+						{"active", true},
+					},
+				},
+			},
+		}
 	}
 
 	filter = append(filter, pipeline...)
