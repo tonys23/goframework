@@ -3,7 +3,6 @@ package goframework
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"os"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
@@ -97,20 +96,20 @@ func (kp *KafkaProducer[T]) Publish(ctx context.Context, msgs ...*T) error {
 			return err
 		}
 
-		go func() {
-			for e := range p.Events() {
-				switch ev := e.(type) {
-				case *kafka.Message:
-					if ev.TopicPartition.Error != nil {
-						log.Fatalf("Failed to deliver message: %v\n", ev.TopicPartition)
-					} else {
-						log.Printf("Successfully produced record to topic %s partition [%d] @ offset %v\n",
-							*ev.TopicPartition.Topic, ev.TopicPartition.Partition, ev.TopicPartition.Offset)
-					}
-				}
-			}
-			defer p.Close()
-		}()
+		// go func() {
+		// 	for e := range p.Events() {
+		// 		switch ev := e.(type) {
+		// 		case *kafka.Message:
+		// 			if ev.TopicPartition.Error != nil {
+		// 				log.Fatalf("Failed to deliver message: %v\n", ev.TopicPartition)
+		// 			} else {
+		// 				log.Printf("Successfully produced record to topic %s partition [%d] @ offset %v\n",
+		// 					*ev.TopicPartition.Topic, ev.TopicPartition.Partition, ev.TopicPartition.Offset)
+		// 			}
+		// 		}
+		// 	}
+		// 	defer p.Close()
+		// }()
 
 	}
 
