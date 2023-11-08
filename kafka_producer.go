@@ -3,6 +3,7 @@ package goframework
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
@@ -25,6 +26,7 @@ type (
 		kcs *KafkaProducerSettings
 		kcm *kafka.ConfigMap
 		k   *GoKafka
+		kp  *kafka.Producer
 	}
 )
 
@@ -43,11 +45,30 @@ func NewKafkaProducer[T interface{}](k *GoKafka,
 	// 	NumPartitions:     kcs.NumPartitions,
 	// 	ReplicationFactor: kcs.ReplicationFactor,
 	// })
+	kp, err := kafka.NewProducer(kcm)
+	if err != nil {
+		return nil
+	}
+
+	// go func() {
+	// 	for e := range kp.Events() {
+	// 		switch ev := e.(type) {
+	// 		case *kafka.Message:
+	// 			if ev.TopicPartition.Error != nil {
+	// 				fmt.Printf("Failed to deliver message: %v\n", ev.TopicPartition)
+	// 			} else {
+	// 				fmt.Printf("Successfully produced record to topic %s partition [%d] @ offset %v\n",
+	// 					*ev.TopicPartition.Topic, ev.TopicPartition.Partition, ev.TopicPartition.Offset)
+	// 			}
+	// 		}
+	// 	}
+	// }()
 
 	return &KafkaProducer[T]{
 		kcs: kcs,
 		kcm: kcm,
 		k:   k,
+		kp:  kp,
 	}
 }
 
@@ -64,11 +85,6 @@ func (kp *KafkaProducer[T]) Publish(ctx context.Context, msgs ...*T) error {
 			"X-Author":         "X-Author",
 			"X-Author-Id":      "X-Author-Id",
 			"X-Correlation-Id": "X-Correlation-Id"})
-
-	p, err := kafka.NewProducer(kp.kcm)
-	if err != nil {
-		return err
-	}
 
 	for _, m := range msgs {
 
@@ -88,29 +104,14 @@ func (kp *KafkaProducer[T]) Publish(ctx context.Context, msgs ...*T) error {
 		}
 
 		delivery_chan := make(chan kafka.Event, 10000)
-		if err = p.Produce(&kafka.Message{TopicPartition: kafka.TopicPartition{
+		if err = kp.kp.Produce(&kafka.Message{TopicPartition: kafka.TopicPartition{
 			Topic:     &kp.kcs.Topic,
 			Partition: kafka.PartitionAny,
 			Offset:    kp.kcs.Offset,
 		}, Value: data, Headers: headers}, delivery_chan); err != nil {
+			fmt.Println(err.Error())
 			return err
 		}
-
-		// go func() {
-		// 	for e := range p.Events() {
-		// 		switch ev := e.(type) {
-		// 		case *kafka.Message:
-		// 			if ev.TopicPartition.Error != nil {
-		// 				log.Fatalf("Failed to deliver message: %v\n", ev.TopicPartition)
-		// 			} else {
-		// 				log.Printf("Successfully produced record to topic %s partition [%d] @ offset %v\n",
-		// 					*ev.TopicPartition.Topic, ev.TopicPartition.Partition, ev.TopicPartition.Offset)
-		// 			}
-		// 		}
-		// 	}
-		// 	defer p.Close()
-		// }()
-
 	}
 
 	return nil
