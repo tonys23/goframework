@@ -41,6 +41,19 @@ func NewMongoDbRepository[T interface{}](
 	}
 }
 
+func appendTenantToFilterAgg(ctx context.Context, filterAggregator map[string][]interface{}) {
+	if tenantId := getContextHeader(ctx, "X-Tenant-Id"); tenantId != "" {
+		if tid, err := uuid.Parse(tenantId); err == nil {
+			filterAggregator["$and"] = append(filterAggregator["$and"], map[string]interface{}{"$or": bson.A{
+				bson.D{{"tenantId", tid}},
+				bson.D{{"tenantId", uuid.Nil}},
+			},
+			})
+			filterAggregator["$and"] = append(filterAggregator["$and"])
+		}
+	}
+}
+
 func (r *MongoDbRepository[T]) GetAll(
 	ctx context.Context,
 	filter map[string]interface{},
@@ -49,15 +62,7 @@ func (r *MongoDbRepository[T]) GetAll(
 	filterAggregator := make(map[string][]interface{})
 	filterAggregator["$and"] = append(filterAggregator["$and"], filter, bson.D{{"active", true}})
 
-	if tenantId := getContextHeader(ctx, "X-Tenant-Id"); tenantId != "" {
-		filterAggregator["$and"] = append(filterAggregator["$and"], map[string]interface{}{"$or": bson.A{
-			bson.D{{"tenantId", uuid.MustParse(tenantId)}},
-			bson.D{{"tenantId", uuid.MustParse("00000000-0000-0000-0000-000000000000")}},
-		},
-		})
-		filterAggregator["$and"] = append(filterAggregator["$and"])
-	}
-
+	appendTenantToFilterAgg(ctx, filterAggregator)
 	if os.Getenv("env") == "local" {
 		_, obj, err := bson.MarshalValue(filterAggregator)
 		fmt.Print(bson.Raw(obj), err)
@@ -92,14 +97,7 @@ func (r *MongoDbRepository[T]) GetAllSkipTake(
 	filterAggregator := make(map[string][]interface{})
 	filterAggregator["$and"] = append(filterAggregator["$and"], filter)
 
-	if tenantId := getContextHeader(ctx, "X-Tenant-Id"); tenantId != "" {
-		filterAggregator["$and"] = append(filterAggregator["$and"], map[string]interface{}{"$or": bson.A{
-			bson.D{{"tenantId", uuid.MustParse(tenantId)}},
-			bson.D{{"tenantId", uuid.MustParse("00000000-0000-0000-0000-000000000000")}},
-		},
-		})
-		filterAggregator["$and"] = append(filterAggregator["$and"], bson.D{{"active", true}})
-	}
+	appendTenantToFilterAgg(ctx, filterAggregator)
 
 	opts := make([]*options.FindOptions, 0)
 
@@ -138,18 +136,24 @@ func (r *MongoDbRepository[T]) GetAllSkipTake(
 	return result
 }
 
+func appendTenantToFilter(ctx context.Context, filter map[string]interface{}) {
+	if tenantId := getContextHeader(ctx, "X-Tenant-Id"); tenantId != "" {
+		if tid, err := uuid.Parse(tenantId); err == nil {
+			filter["$or"] = bson.A{
+				bson.D{{"tenantId", tid}},
+				bson.D{{"tenantId", uuid.Nil}},
+			}
+			filter["active"] = true
+		}
+	}
+}
+
 func (r *MongoDbRepository[T]) GetFirst(
 	ctx context.Context,
 	filter map[string]interface{}) *T {
 	var el T
 
-	if tenantId := getContextHeader(ctx, "X-Tenant-Id"); tenantId != "" {
-		filter["$or"] = bson.A{
-			bson.D{{"tenantId", uuid.MustParse(tenantId)}},
-			bson.D{{"tenantId", uuid.MustParse("00000000-0000-0000-0000-000000000000")}},
-		}
-		filter["active"] = true
-	}
+	appendTenantToFilter(ctx, filter)
 
 	if os.Getenv("env") == "local" {
 		_, obj, err := bson.MarshalValue(filter)
@@ -182,7 +186,9 @@ func (r *MongoDbRepository[T]) insertDefaultParam(ctx context.Context, entity *T
 	}
 	// helperContext(ctx, bsonM, map[string]string{"createdBy": "X-Author", "updatedBy": "X-Author"})
 	if tenantid := getContextHeader(ctx, "X-Tenant-Id"); tenantid != "" {
-		bsonM["tenantId"] = uuid.MustParse(tenantid)
+		if tid, err := uuid.Parse(tenantid); err == nil {
+			bsonM["tenantId"] = tid
+		}
 	}
 
 	var history = make(map[string]interface{})
@@ -267,7 +273,9 @@ func (r *MongoDbRepository[T]) Replace(
 	entity *T) error {
 
 	if tenantId := getContextHeader(ctx, "X-Tenant-Id"); tenantId != "" {
-		filter["tenantId"] = uuid.MustParse(tenantId)
+		if tid, err := uuid.Parse(tenantId); err == nil {
+			filter["tenantId"] = tid
+		}
 	}
 
 	if os.Getenv("env") == "local" {
@@ -301,7 +309,9 @@ func (r *MongoDbRepository[T]) Update(
 	fields interface{}) error {
 
 	if tenantId := getContextHeader(ctx, "X-Tenant-Id"); tenantId != "" {
-		filter["tenantId"] = uuid.MustParse(tenantId)
+		if tid, err := uuid.Parse(tenantId); err == nil {
+			filter["tenantId"] = tid
+		}
 	}
 
 	setBson := structToBson(fields)
@@ -332,11 +342,7 @@ func (r *MongoDbRepository[T]) Delete(
 	ctx context.Context,
 	filter map[string]interface{}) error {
 
-	if tenantId := getContextHeader(ctx, "X-Tenant-Id"); tenantId != "" {
-		filter["$or"] = bson.A{
-			bson.D{{"tenantId", uuid.MustParse(tenantId)}},
-		}
-	}
+	appendTenantToFilter(ctx, filter)
 
 	if os.Getenv("env") == "local" {
 		_, obj, err := bson.MarshalValue(filter)
@@ -361,11 +367,7 @@ func (r *MongoDbRepository[T]) DeleteForce(
 	ctx context.Context,
 	filter map[string]interface{}) error {
 
-	if tenantId := getContextHeader(ctx, "X-Tenant-Id"); tenantId != "" {
-		filter["$or"] = bson.A{
-			bson.D{{"tenantId", uuid.MustParse(tenantId)}},
-		}
-	}
+	appendTenantToFilter(ctx, filter)
 
 	if os.Getenv("env") == "local" {
 		_, obj, err := bson.MarshalValue(filter)
@@ -389,15 +391,16 @@ func (r *MongoDbRepository[T]) Aggregate(ctx context.Context, pipeline []interfa
 
 	filter := bson.A{}
 
-	if tenantId := getContextHeader(ctx, "X-Tenant-Id"); tenantId != "" {
+	tenantId := getContextHeader(ctx, "X-Tenant-Id")
+	if tid, err := uuid.Parse(tenantId); err == nil {
 		filter = bson.A{
 			bson.D{
 				{"$match",
 					bson.D{
 						{"$or",
 							bson.A{
-								bson.D{{"tenantId", uuid.MustParse("00000000-0000-0000-0000-000000000000")}},
-								bson.D{{"tenantId", uuid.MustParse(getContextHeader(ctx, "X-Tenant-Id"))}},
+								bson.D{{"tenantId", uuid.Nil}},
+								bson.D{{"tenantId", tid}},
 							},
 						},
 						{"active", true},
@@ -432,14 +435,8 @@ func (r *MongoDbRepository[T]) Count(ctx context.Context,
 	filterAggregator := make(map[string][]interface{})
 	filterAggregator["$and"] = append(filterAggregator["$and"], filter)
 
-	if tenantId := getContextHeader(ctx, "X-Tenant-Id"); tenantId != "" {
-		filterAggregator["$and"] = append(filterAggregator["$and"], map[string]interface{}{"$or": bson.A{
-			bson.D{{"tenantId", uuid.MustParse(tenantId)}},
-			bson.D{{"tenantId", uuid.MustParse("00000000-0000-0000-0000-000000000000")}},
-		},
-		})
-		filterAggregator["$and"] = append(filterAggregator["$and"], bson.D{{"active", true}})
-	}
+	appendTenantToFilterAgg(ctx, filterAggregator)
+	filterAggregator["$and"] = append(filterAggregator["$and"], bson.D{{"active", true}})
 
 	if os.Getenv("env") == "local" {
 		_, obj, err := bson.MarshalValue(filterAggregator)
