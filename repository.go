@@ -50,12 +50,15 @@ func (r *MongoDbRepository[T]) GetAll(
 	filterAggregator["$and"] = append(filterAggregator["$and"], filter, bson.D{{"active", true}})
 
 	if tenantId := getContextHeader(ctx, "X-Tenant-Id"); tenantId != "" {
-		filterAggregator["$and"] = append(filterAggregator["$and"], map[string]interface{}{"$or": bson.A{
-			bson.D{{"tenantId", uuid.MustParse(tenantId)}},
-			bson.D{{"tenantId", uuid.MustParse("00000000-0000-0000-0000-000000000000")}},
-		},
-		})
-		filterAggregator["$and"] = append(filterAggregator["$and"])
+		tid, err := uuid.Parse(tenantId)
+		if err == nil {
+			filterAggregator["$and"] = append(filterAggregator["$and"], map[string]interface{}{"$or": bson.A{
+				bson.D{{"tenantId", tid}},
+				bson.D{{"tenantId", uuid.Nil}},
+			},
+			})
+			filterAggregator["$and"] = append(filterAggregator["$and"])
+		}
 	}
 
 	if os.Getenv("env") == "local" {
