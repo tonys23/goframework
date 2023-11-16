@@ -313,16 +313,23 @@ func (r *MongoDbRepository[T]) Update(
 			filter["tenantId"] = tid
 		}
 	}
+	var setBson bson.M
+	_, obj, err := bson.MarshalValue(fields)
+	if err != nil {
+		return err
+	}
+	bson.Unmarshal(obj, &setBson)
 
-	setBson := structToBson(fields)
+	// setBson := structToBson(fields)
 	var history = make(map[string]interface{})
 	history["actionAt"] = time.Now()
 	helperContext(ctx, history, map[string]string{"author": "X-Author", "authorId": "X-Author-Id"})
 	setBson["updated"] = history
+	delete(setBson, "_id")
 
 	if os.Getenv("env") == "local" {
-		_, obj, err := bson.MarshalValue(filter)
-		fmt.Print(bson.Raw(obj), err)
+		// _, obj, err := bson.MarshalValue(filter)
+		fmt.Print(bson.Raw(obj))
 	}
 
 	re, err := r.collection.UpdateOne(getContext(ctx), filter, map[string]interface{}{"$set": setBson})
