@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"regexp"
 	"strings"
 	"time"
 
@@ -34,7 +35,8 @@ func NewMongoDbRepository[T interface{}](
 	db *mongo.Database,
 ) IRepository[T] {
 	var r T
-	coll := db.Collection(strings.ToLower(reflect.TypeOf(r).Name()))
+	reg := regexp.MustCompile(`\[.*`)
+	coll := db.Collection(reg.ReplaceAllString(strings.ToLower(reflect.TypeOf(r).Name()), ""))
 	return &MongoDbRepository[T]{
 		collection: coll,
 		dataList:   &DataList[T]{},
@@ -314,7 +316,7 @@ func (r *MongoDbRepository[T]) Update(
 		}
 	}
 	var setBson bson.M
-	_, obj, err := bson.MarshalValue(fields)
+	obj, err := bson.Marshal(fields)
 	if err != nil {
 		return err
 	}

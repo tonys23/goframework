@@ -20,12 +20,12 @@ var (
 	uuidSubtype = byte(0x04)
 
 	mongoRegistry = bson.NewRegistryBuilder().
-			RegisterTypeEncoder(tUUID, bsoncodec.ValueEncoderFunc(uuidEncodeValue)).
-			RegisterTypeDecoder(tUUID, bsoncodec.ValueDecoderFunc(uuidDecodeValue)).
+			RegisterTypeEncoder(tUUID, bsoncodec.ValueEncoderFunc(UuidEncodeValue)).
+			RegisterTypeDecoder(tUUID, bsoncodec.ValueDecoderFunc(UuidDecodeValue)).
 			Build()
 )
 
-func uuidEncodeValue(ec bsoncodec.EncodeContext, vw bsonrw.ValueWriter, val reflect.Value) error {
+func UuidEncodeValue(ec bsoncodec.EncodeContext, vw bsonrw.ValueWriter, val reflect.Value) error {
 	if !val.IsValid() || val.Type() != tUUID {
 		return bsoncodec.ValueEncoderError{Name: "uuidEncodeValue", Types: []reflect.Type{tUUID}, Received: val}
 	}
@@ -33,7 +33,7 @@ func uuidEncodeValue(ec bsoncodec.EncodeContext, vw bsonrw.ValueWriter, val refl
 	return vw.WriteBinaryWithSubtype(b[:], uuidSubtype)
 }
 
-func uuidDecodeValue(dc bsoncodec.DecodeContext, vr bsonrw.ValueReader, val reflect.Value) error {
+func UuidDecodeValue(dc bsoncodec.DecodeContext, vr bsonrw.ValueReader, val reflect.Value) error {
 	if !val.CanSet() || val.Type() != tUUID {
 		return bsoncodec.ValueDecoderError{Name: "uuidDecodeValue", Types: []reflect.Type{tUUID}, Received: val}
 	}
