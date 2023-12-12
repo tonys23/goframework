@@ -316,7 +316,7 @@ func (r *MongoDbRepository[T]) Update(
 		}
 	}
 	var setBson bson.M
-	obj, err := bson.Marshal(fields)
+	_, obj, err := bson.MarshalValueWithRegistry(mongoRegistry, fields)
 	if err != nil {
 		return err
 	}
