@@ -252,9 +252,14 @@ func (gf *GoFramework) RegisterCache(constructor interface{}) {
 	}
 }
 
-func (gf *GoFramework) RegisterKafka(server string, groupId string) {
+func (gf *GoFramework) RegisterKafka(server string,
+	groupId string,
+	securityprotocol string,
+	saslmechanism string,
+	saslusername string,
+	saslpassword string) {
 	err := gf.ioc.Provide(func() *GoKafka {
-		kc := NewKafkaConfigMap(server, groupId)
+		kc := NewKafkaConfigMap(server, groupId, securityprotocol, saslmechanism, saslusername, saslpassword)
 		if gf.nrApplication != nil {
 			kc.newMonitor(gf.nrApplication.getAgent())
 		}

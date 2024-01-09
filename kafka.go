@@ -19,16 +19,29 @@ type (
 	}
 
 	GoKafka struct {
-		server  string
-		groupId string
-		nrapp   *newrelic.Application
+		server           string
+		groupId          string
+		nrapp            *newrelic.Application
+		securityprotocol string
+		saslmechanism    string
+		saslusername     string
+		saslpassword     string
 	}
 )
 
-func NewKafkaConfigMap(connectionString string, groupId string) *GoKafka {
+func NewKafkaConfigMap(connectionString string,
+	groupId string,
+	securityprotocol string,
+	saslmechanism string,
+	saslusername string,
+	saslpassword string) *GoKafka {
 	return &GoKafka{
-		server:  connectionString,
-		groupId: groupId,
+		server:           connectionString,
+		groupId:          groupId,
+		securityprotocol: securityprotocol,
+		saslmechanism:    saslmechanism,
+		saslusername:     saslusername,
+		saslpassword:     saslpassword,
 	}
 }
 
@@ -51,6 +64,22 @@ func (k *GoKafka) Consumer(topic string, fn ConsumerFunc) {
 			"auto.offset.reset":             kcs.AutoOffsetReset,
 			"partition.assignment.strategy": "cooperative-sticky",
 			"enable.auto.commit":            false,
+		}
+
+		if len(k.securityprotocol) > 0 {
+			kc.SetKey("security.protocol", k.securityprotocol)
+		}
+
+		if len(k.saslmechanism) > 0 {
+			kc.SetKey("sasl.mechanism", k.saslmechanism)
+		}
+
+		if len(k.saslusername) > 0 {
+			kc.SetKey("sasl.username", k.saslusername)
+		}
+
+		if len(k.saslpassword) > 0 {
+			kc.SetKey("sasl.password", k.saslpassword)
 		}
 
 		fmt.Fprintf(os.Stdout,

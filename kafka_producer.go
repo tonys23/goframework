@@ -38,7 +38,24 @@ func NewKafkaProducer[T interface{}](k *GoKafka,
 	kcm := &kafka.ConfigMap{
 		"bootstrap.servers": k.server,
 		"client.id":         hostname,
-		"acks":              "all"}
+		"acks":              "all",
+	}
+
+	if len(k.securityprotocol) > 0 {
+		kcm.SetKey("security.protocol", k.securityprotocol)
+	}
+
+	if len(k.saslmechanism) > 0 {
+		kcm.SetKey("sasl.mechanism", k.saslmechanism)
+	}
+
+	if len(k.saslusername) > 0 {
+		kcm.SetKey("sasl.username", k.saslusername)
+	}
+
+	if len(k.saslpassword) > 0 {
+		kcm.SetKey("sasl.password", k.saslpassword)
+	}
 
 	// CreateKafkaTopic(context.Background(), kcm, &TopicConfiguration{
 	// 	Topic:             kcs.Topic,
