@@ -43,6 +43,9 @@ func NewKafkaProducer[T interface{}](k *GoKafka,
 
 	if len(k.securityprotocol) > 0 {
 		kcm.SetKey("security.protocol", k.securityprotocol)
+		if k.securityprotocol == "SASL_SSL" {
+			kcm.SetKey("enable.ssl.certificate.verification", true)
+		}
 	}
 
 	if len(k.saslmechanism) > 0 {
