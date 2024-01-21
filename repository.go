@@ -44,7 +44,7 @@ func NewMongoDbRepository[T interface{}](
 }
 
 func appendTenantToFilterAgg(ctx context.Context, filterAggregator map[string][]interface{}) {
-	if tenantId := getContextHeader(ctx, "X-Tenant-Id"); tenantId != "" {
+	if tenantId := getContextHeader(ctx, XTENANTID); tenantId != "" {
 		if tid, err := uuid.Parse(tenantId); err == nil {
 			filterAggregator["$and"] = append(filterAggregator["$and"], map[string]interface{}{"$or": bson.A{
 				bson.D{{"tenantId", tid}},
@@ -139,7 +139,7 @@ func (r *MongoDbRepository[T]) GetAllSkipTake(
 }
 
 func appendTenantToFilter(ctx context.Context, filter map[string]interface{}) {
-	if tenantId := getContextHeader(ctx, "X-Tenant-Id"); tenantId != "" {
+	if tenantId := getContextHeader(ctx, XTENANTID); tenantId != "" {
 		if tid, err := uuid.Parse(tenantId); err == nil {
 			filter["$or"] = bson.A{
 				bson.D{{"tenantId", tid}},
@@ -186,8 +186,8 @@ func (r *MongoDbRepository[T]) insertDefaultParam(ctx context.Context, entity *T
 	if err != nil {
 		return nil, err
 	}
-	// helperContext(ctx, bsonM, map[string]string{"createdBy": "X-Author", "updatedBy": "X-Author"})
-	if tenantid := getContextHeader(ctx, "X-Tenant-Id"); tenantid != "" {
+	// helperContext(ctx, bsonM, map[string]string{"createdBy": XAUTHOR, "updatedBy": XAUTHOR})
+	if tenantid := getContextHeader(ctx, XTENANTID); tenantid != "" {
 		if tid, err := uuid.Parse(tenantid); err == nil {
 			bsonM["tenantId"] = tid
 		}
@@ -195,7 +195,7 @@ func (r *MongoDbRepository[T]) insertDefaultParam(ctx context.Context, entity *T
 
 	var history = make(map[string]interface{})
 	history["actionAt"] = time.Now()
-	helperContext(ctx, history, map[string]string{"author": "X-Author", "authorId": "X-Author-Id"})
+	helperContext(ctx, history, map[string]string{"author": XAUTHOR, "authorId": XAUTHORID})
 
 	bsonM["created"] = history
 	bsonM["updated"] = history
@@ -218,7 +218,7 @@ func (r *MongoDbRepository[T]) replaceDefaultParam(ctx context.Context, old bson
 
 	var history = make(map[string]interface{})
 	history["actionAt"] = time.Now()
-	helperContext(ctx, history, map[string]string{"author": "X-Author", "authorId": "X-Author-Id"})
+	helperContext(ctx, history, map[string]string{"author": XAUTHOR, "authorId": XAUTHORID})
 
 	bsonM["tenantId"] = old["tenantId"]
 	bsonM["created"] = old["created"]
@@ -274,7 +274,7 @@ func (r *MongoDbRepository[T]) Replace(
 	filter map[string]interface{},
 	entity *T) error {
 
-	if tenantId := getContextHeader(ctx, "X-Tenant-Id"); tenantId != "" {
+	if tenantId := getContextHeader(ctx, XTENANTID); tenantId != "" {
 		if tid, err := uuid.Parse(tenantId); err == nil {
 			filter["tenantId"] = tid
 		}
@@ -310,7 +310,7 @@ func (r *MongoDbRepository[T]) Update(
 	filter map[string]interface{},
 	fields interface{}) error {
 
-	if tenantId := getContextHeader(ctx, "X-Tenant-Id"); tenantId != "" {
+	if tenantId := getContextHeader(ctx, XTENANTID); tenantId != "" {
 		if tid, err := uuid.Parse(tenantId); err == nil {
 			filter["tenantId"] = tid
 		}
@@ -325,7 +325,7 @@ func (r *MongoDbRepository[T]) Update(
 	// setBson := structToBson(fields)
 	var history = make(map[string]interface{})
 	history["actionAt"] = time.Now()
-	helperContext(ctx, history, map[string]string{"author": "X-Author", "authorId": "X-Author-Id"})
+	helperContext(ctx, history, map[string]string{"author": XAUTHOR, "authorId": XAUTHORID})
 	setBson["updated"] = history
 	delete(setBson, "_id")
 
@@ -400,7 +400,7 @@ func (r *MongoDbRepository[T]) Aggregate(ctx context.Context, pipeline []interfa
 
 	filter := bson.A{}
 
-	tenantId := getContextHeader(ctx, "X-Tenant-Id")
+	tenantId := getContextHeader(ctx, XTENANTID)
 	if tid, err := uuid.Parse(tenantId); err == nil {
 		filter = bson.A{
 			bson.D{

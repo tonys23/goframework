@@ -37,7 +37,7 @@ func AddTenant() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		tokenString := ctx.GetHeader("Authorization")
 		if tokenString == "" {
-			ctx.Request.Header.Add("X-Tenant-Id", "00000000-0000-0000-0000-000000000000")
+			ctx.Request.Header.Add(XTENANTID, "00000000-0000-0000-0000-000000000000")
 			return
 		}
 
@@ -49,11 +49,11 @@ func AddTenant() gin.HandlerFunc {
 
 		if claims, ok := token.Claims.(jwt.MapClaims); ok {
 			if ctx.Request.Method == "POST" || ctx.Request.Method == "PUT" || ctx.Request.Method == "DELETE" {
-				ctx.Request.Header.Add("X-Author", fmt.Sprint(claims["name"]))
-				ctx.Request.Header.Add("X-Author-Id", fmt.Sprint(claims["sub"]))
+				ctx.Request.Header.Add(XAUTHOR, fmt.Sprint(claims["name"]))
+				ctx.Request.Header.Add(XAUTHORID, fmt.Sprint(claims["sub"]))
 			}
 
-			ctx.Request.Header.Add("X-Tenant-Id", fmt.Sprint(claims["tenant_id"]))
+			ctx.Request.Header.Add(XTENANTID, fmt.Sprint(claims["tenant_id"]))
 		}
 	}
 }
@@ -181,6 +181,8 @@ func (gf *GoFramework) RegisterDbMongo(host string, user string, pass string, da
 		}
 		return cli.Database(database)
 	})
+
+	gf.ioc.Provide(NewMongoTransaction)
 
 	gf.healthCheck = append(gf.healthCheck, func() (string, bool) {
 		serviceName := "MDB"

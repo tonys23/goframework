@@ -11,6 +11,13 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
+const (
+	XTENANTID      string = "X-Tenant-Id"
+	XAUTHOR        string = "X-Author"
+	XAUTHORID      string = "X-Author-Id"
+	XCORRELATIONID string = "X-Correlation-Id"
+)
+
 func helperContext(c context.Context, filter map[string]interface{}, addfilter map[string]string) {
 	switch c := c.(type) {
 	case *gin.Context:
@@ -90,6 +97,32 @@ func helperContextKafka(c context.Context, addfilter map[string]string) []kafka.
 		}
 	}
 	return filter
+}
+
+func ToContext(c context.Context) context.Context {
+	listContext := []string{XTENANTID, XAUTHOR, XAUTHORID, XCORRELATIONID}
+
+	cc := context.Background()
+	switch c := c.(type) {
+	case *gin.Context:
+		for _, v := range listContext {
+			cc = context.WithValue(cc, v, c.Request.Header.Get(v))
+		}
+	case *ConsumerContext:
+		for _, v := range listContext {
+			for _, kh := range c.Msg.Headers {
+				if kh.Key == v {
+					cc = context.WithValue(cc, v, string(kh.Value))
+					break
+				}
+			}
+		}
+	default:
+		for _, v := range listContext {
+			cc = context.WithValue(cc, v, fmt.Sprint(c.Value(v)))
+		}
+	}
+	return cc
 }
 
 func structToBson(inputStruct interface{}) bson.M {

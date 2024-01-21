@@ -101,21 +101,21 @@ func (kp *KafkaProducer[T]) Publish(ctx context.Context, msgs ...*T) error {
 
 	headers := helperContextKafka(ctx,
 		map[string]string{
-			"X-Tenant-Id":      "X-Tenant-Id",
-			"X-Author":         "X-Author",
-			"X-Author-Id":      "X-Author-Id",
-			"X-Correlation-Id": "X-Correlation-Id"})
+			XTENANTID:      XTENANTID,
+			XAUTHOR:        XAUTHOR,
+			XAUTHORID:      XAUTHORID,
+			XCORRELATIONID: XCORRELATIONID})
 
 	for _, m := range msgs {
 
 		hasCorrelationID := false
 		for _, v := range headers {
-			if v.Key == "X-Correlation-Id" && len(v.Value) > 0 {
+			if v.Key == XCORRELATIONID && len(v.Value) > 0 {
 				hasCorrelationID = true
 			}
 		}
 		if !hasCorrelationID {
-			headers = append(headers, kafka.Header{Key: "X-Correlation-Id", Value: []byte(uuid.NewString())})
+			headers = append(headers, kafka.Header{Key: XCORRELATIONID, Value: []byte(uuid.NewString())})
 		}
 
 		data, err := json.Marshal(m)
