@@ -383,7 +383,7 @@ func (r *MongoDbRepository[T]) DeleteForce(
 		fmt.Print(bson.Raw(obj), err)
 	}
 
-	_, err := r.collection.DeleteOne(getContext(ctx), filter)
+	_, err := r.collection.DeleteMany(getContext(ctx), filter)
 
 	if err == mongo.ErrNoDocuments {
 		return nil
