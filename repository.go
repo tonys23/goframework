@@ -372,7 +372,56 @@ func (r *MongoDbRepository[T]) Delete(
 	return nil
 }
 
+func (r *MongoDbRepository[T]) DeleteMany(
+	ctx context.Context,
+	filter map[string]interface{}) error {
+
+	appendTenantToFilter(ctx, filter)
+
+	if os.Getenv("env") == "local" {
+		_, obj, err := bson.MarshalValue(filter)
+		fmt.Print(bson.Raw(obj), err)
+	}
+
+	setBson := bson.M{"active": false}
+	re, err := r.collection.UpdateMany(getContext(ctx), filter, map[string]interface{}{"$set": setBson})
+
+	if err != nil {
+		return err
+	}
+
+	if re.MatchedCount == 0 {
+		return fmt.Errorf("MatchedCountZero")
+	}
+
+	return nil
+}
+
 func (r *MongoDbRepository[T]) DeleteForce(
+	ctx context.Context,
+	filter map[string]interface{}) error {
+
+	appendTenantToFilter(ctx, filter)
+
+	if os.Getenv("env") == "local" {
+		_, obj, err := bson.MarshalValue(filter)
+		fmt.Print(bson.Raw(obj), err)
+	}
+
+	_, err := r.collection.DeleteOne(getContext(ctx), filter)
+
+	if err == mongo.ErrNoDocuments {
+		return nil
+	}
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *MongoDbRepository[T]) DeleteManyForce(
 	ctx context.Context,
 	filter map[string]interface{}) error {
 

@@ -31,7 +31,11 @@ type IRepository[T interface{}] interface {
 		fields interface{}) error
 	Delete(ctx context.Context,
 		filter map[string]interface{}) error
+	DeleteMany(ctx context.Context,
+		filter map[string]interface{}) error
 	DeleteForce(ctx context.Context,
+		filter map[string]interface{}) error
+	DeleteManyForce(ctx context.Context,
 		filter map[string]interface{}) error
 	Aggregate(ctx context.Context,
 		pipeline []interface{}) (*mongo.Cursor, error)
