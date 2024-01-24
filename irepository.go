@@ -8,6 +8,7 @@ import (
 )
 
 type IRepository[T interface{}] interface {
+	ChangeCollection(collectionName string)
 	GetAll(ctx context.Context,
 		filter map[string]interface{},
 		optsFind ...*options.FindOptions) *[]T

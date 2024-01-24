@@ -27,6 +27,7 @@ type DataList[T interface{}] struct {
 }
 
 type MongoDbRepository[T interface{}] struct {
+	db         *mongo.Database
 	collection *mongo.Collection
 	dataList   *DataList[T]
 }
@@ -38,9 +39,14 @@ func NewMongoDbRepository[T interface{}](
 	reg := regexp.MustCompile(`\[.*`)
 	coll := db.Collection(reg.ReplaceAllString(strings.ToLower(reflect.TypeOf(r).Name()), ""))
 	return &MongoDbRepository[T]{
+		db:         db,
 		collection: coll,
 		dataList:   &DataList[T]{},
 	}
+}
+
+func (r *MongoDbRepository[T]) ChangeCollection(collectionName string) {
+	r.collection = r.db.Collection(collectionName)
 }
 
 func appendTenantToFilterAgg(ctx context.Context, filterAggregator map[string][]interface{}) {
@@ -176,7 +182,7 @@ func (r *MongoDbRepository[T]) GetFirst(
 }
 
 func (r *MongoDbRepository[T]) insertDefaultParam(ctx context.Context, entity *T) (bson.M, error) {
-	bsonMap, err := bson.MarshalWithRegistry(mongoRegistry, entity)
+	bsonMap, err := bson.MarshalWithRegistry(MongoRegistry, entity)
 	if err != nil {
 		return nil, err
 	}
@@ -205,7 +211,7 @@ func (r *MongoDbRepository[T]) insertDefaultParam(ctx context.Context, entity *T
 }
 
 func (r *MongoDbRepository[T]) replaceDefaultParam(ctx context.Context, old bson.M, entity *T) (bson.M, error) {
-	bsonMap, err := bson.MarshalWithRegistry(mongoRegistry, entity)
+	bsonMap, err := bson.MarshalWithRegistry(MongoRegistry, entity)
 	if err != nil {
 		return nil, err
 	}
@@ -316,7 +322,7 @@ func (r *MongoDbRepository[T]) Update(
 		}
 	}
 	var setBson bson.M
-	_, obj, err := bson.MarshalValueWithRegistry(mongoRegistry, fields)
+	_, obj, err := bson.MarshalValueWithRegistry(MongoRegistry, fields)
 	if err != nil {
 		return err
 	}
@@ -481,8 +487,8 @@ func (r *MongoDbRepository[T]) Aggregate(ctx context.Context, pipeline []interfa
 	filter = append(filter, pipeline...)
 
 	if os.Getenv("env") == "local" {
-		_, obj, err := bson.MarshalValue(filter)
-		fmt.Print(bson.Raw(obj), err)
+		_, obj, err := bson.MarshalValueWithRegistry(MongoRegistry, filter)
+		fmt.Println(bson.Raw(obj), err)
 	}
 
 	return r.collection.Aggregate(ctx, filter)

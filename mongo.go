@@ -19,7 +19,7 @@ var (
 	tUUID       = reflect.TypeOf(uuid.UUID{})
 	uuidSubtype = byte(0x04)
 
-	mongoRegistry = bson.NewRegistryBuilder().
+	MongoRegistry = bson.NewRegistryBuilder().
 			RegisterTypeEncoder(tUUID, bsoncodec.ValueEncoderFunc(UuidEncodeValue)).
 			RegisterTypeDecoder(tUUID, bsoncodec.ValueDecoderFunc(UuidDecodeValue)).
 			Build()
@@ -69,6 +69,6 @@ func UuidDecodeValue(dc bsoncodec.DecodeContext, vr bsonrw.ValueReader, val refl
 func newMongoClient(opts *options.ClientOptions) (*mongo.Client, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	return mongo.Connect(ctx, opts.SetRegistry(mongoRegistry))
+	return mongo.Connect(ctx, opts.SetRegistry(MongoRegistry))
 
 }
