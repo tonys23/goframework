@@ -2,6 +2,7 @@ package goframework
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -47,6 +48,111 @@ func NewKafkaConfigMap(connectionString string,
 
 func (k *GoKafka) newMonitor(nrapp *newrelic.Application) {
 	k.nrapp = nrapp
+}
+
+func wait_until(fn func() bool) {
+	for fn() {
+		time.Sleep(time.Second)
+	}
+}
+
+func recover_all() {
+	if e := recover(); e != nil {
+		switch ee := e.(type) {
+		case error:
+			fmt.Println(ee)
+		case string:
+			fmt.Println(errors.New(ee))
+		default:
+			fmt.Println(fmt.Errorf("undefined error: %v", ee))
+		}
+	}
+}
+
+func (k *GoKafka) ConsumerMultiRoutine(topic string, fn ConsumerFunc, routines int) {
+	go func(topic string) {
+
+		kcs := &KafkaConsumerSettings{
+			Topic:           topic,
+			AutoOffsetReset: "earliest",
+			Retries:         5,
+		}
+
+		kc := &kafka.ConfigMap{
+			"bootstrap.servers":             k.server,
+			"group.id":                      k.groupId,
+			"auto.offset.reset":             kcs.AutoOffsetReset,
+			"partition.assignment.strategy": "cooperative-sticky",
+			"enable.auto.commit":            false,
+		}
+
+		if len(k.securityprotocol) > 0 {
+			kc.SetKey("security.protocol", k.securityprotocol)
+		}
+
+		if len(k.saslmechanism) > 0 {
+			kc.SetKey("sasl.mechanism", k.saslmechanism)
+		}
+
+		if len(k.saslusername) > 0 {
+			kc.SetKey("sasl.username", k.saslusername)
+		}
+
+		if len(k.saslpassword) > 0 {
+			kc.SetKey("sasl.password", k.saslpassword)
+		}
+
+		fmt.Fprintf(os.Stdout,
+			"%% Start consumer %s \n",
+			k.groupId)
+
+		consumer, err := kafka.NewConsumer(kc)
+		if err != nil {
+			log.Fatalln(err.Error())
+			panic(err)
+		}
+
+		err = consumer.SubscribeTopics([]string{kcs.Topic}, rebalanceCallback)
+		if err != nil {
+			log.Fatalln(err.Error())
+			panic(err)
+		}
+		r := 0
+		for {
+			msg, err := consumer.ReadMessage(-1)
+			if err != nil {
+				log.Println(err.Error())
+				continue
+			}
+			r++
+			go func(cmsg *kafka.Message,
+				cconsumer *kafka.Consumer,
+				ckc *kafka.ConfigMap,
+				ckcs KafkaConsumerSettings,
+				nrapp *newrelic.Application,
+				cfn ConsumerFunc) {
+				defer recover_all()
+				defer cconsumer.CommitMessage(cmsg)
+				defer func() {
+					r--
+				}()
+
+				ctx := context.Background()
+				transaction := &newrelic.Transaction{}
+				if nrapp != nil {
+					transaction = k.nrapp.StartTransaction("kafka/consumer")
+					ctx = newrelic.NewContext(ctx, transaction)
+				}
+				kafkaCallFnWithResilence(ctx, cmsg, ckc, ckcs, cfn)
+				if nrapp != nil {
+					transaction.End()
+				}
+			}(msg, consumer, kc, *kcs, k.nrapp, fn)
+			wait_until(func() bool {
+				return r >= routines
+			})
+		}
+	}(topic)
 }
 
 func (k *GoKafka) Consumer(topic string, fn ConsumerFunc) {
