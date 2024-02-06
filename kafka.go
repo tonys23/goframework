@@ -99,12 +99,6 @@ func (k *GoKafka) ConsumerMultiRoutine(
 			"enable.auto.commit":            false,
 		}
 
-		CreateKafkaTopic(context.Background(), kc, &TopicConfiguration{
-			Topic:             topic,
-			NumPartitions:     cfg.Numpartitions,
-			ReplicationFactor: cfg.ReplicationFactor,
-		})
-
 		if len(k.securityprotocol) > 0 {
 			kc.SetKey("security.protocol", k.securityprotocol)
 		}
@@ -124,6 +118,12 @@ func (k *GoKafka) ConsumerMultiRoutine(
 		fmt.Fprintf(os.Stdout,
 			"%% Start consumer %s \n",
 			k.groupId)
+
+		CreateKafkaTopic(context.Background(), kc, &TopicConfiguration{
+			Topic:             topic,
+			NumPartitions:     cfg.Numpartitions,
+			ReplicationFactor: cfg.ReplicationFactor,
+		})
 
 		consumer, err := kafka.NewConsumer(kc)
 		if err != nil {
