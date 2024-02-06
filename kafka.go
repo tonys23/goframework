@@ -69,12 +69,16 @@ func recover_all() {
 	}
 }
 
-func (k *GoKafka) ConsumerMultiRoutine(topic string, fn ConsumerFunc, routines int) {
+func (k *GoKafka) ConsumerMultiRoutine(
+	topic string,
+	fn ConsumerFunc,
+	routines int,
+	autoOffsetReset string) {
 	go func(topic string) {
 
 		kcs := &KafkaConsumerSettings{
 			Topic:           topic,
-			AutoOffsetReset: "earliest",
+			AutoOffsetReset: autoOffsetReset,
 			Retries:         5,
 		}
 
