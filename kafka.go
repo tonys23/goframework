@@ -69,17 +69,26 @@ func recover_all() {
 	}
 }
 
+type (
+	ConsumerMultiRoutineSettings struct {
+		Routines          int
+		AutoOffsetReset   string
+		Numpartitions     int
+		Retries           int
+		ReplicationFactor int
+	}
+)
+
 func (k *GoKafka) ConsumerMultiRoutine(
 	topic string,
 	fn ConsumerFunc,
-	routines int,
-	autoOffsetReset string) {
+	cfg ConsumerMultiRoutineSettings) {
 	go func(topic string) {
 
 		kcs := &KafkaConsumerSettings{
 			Topic:           topic,
-			AutoOffsetReset: autoOffsetReset,
-			Retries:         5,
+			AutoOffsetReset: cfg.AutoOffsetReset,
+			Retries:         uint16(cfg.Retries),
 		}
 
 		kc := &kafka.ConfigMap{
@@ -89,6 +98,12 @@ func (k *GoKafka) ConsumerMultiRoutine(
 			"partition.assignment.strategy": "cooperative-sticky",
 			"enable.auto.commit":            false,
 		}
+
+		CreateKafkaTopic(context.Background(), kc, &TopicConfiguration{
+			Topic:             topic,
+			NumPartitions:     cfg.Numpartitions,
+			ReplicationFactor: cfg.ReplicationFactor,
+		})
 
 		if len(k.securityprotocol) > 0 {
 			kc.SetKey("security.protocol", k.securityprotocol)
@@ -153,7 +168,7 @@ func (k *GoKafka) ConsumerMultiRoutine(
 				}
 			}(msg, consumer, kc, *kcs, k.nrapp, fn)
 			wait_until(func() bool {
-				return r >= routines
+				return r >= cfg.Routines
 			})
 		}
 	}(topic)
