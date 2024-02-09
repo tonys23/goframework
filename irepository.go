@@ -46,5 +46,5 @@ type IRepository[T interface{}] interface {
 	GetLock(ctx context.Context,
 		id interface{}) (*T, error)
 	Unlock(ctx context.Context,
-		id interface{})
+		id interface{}) error
 }
