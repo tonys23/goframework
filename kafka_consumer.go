@@ -70,8 +70,7 @@ func kafkaCallFnWithResilence(
 				kafkaCallFnWithResilence(ctx, msg, kcm, kcs, fn)
 				return
 			}
-
-			kafkaSendToDlq(cctx, &kcs, kcm, msg)
+			kafkaSendToDlq(cctx, &kcs, kcm, msg, err)
 		}
 	}()
 
@@ -82,13 +81,12 @@ func kafkaSendToDlq(
 	ctx context.Context,
 	kcs *KafkaConsumerSettings,
 	kcm *kafka.ConfigMap,
-	msg *kafka.Message) {
+	msg *kafka.Message,
+	er error) {
 	p, err := kafka.NewProducer(kcm)
-
 	if err != nil {
 		panic(err)
 	}
-
 	defer p.Close()
 
 	tpn := *msg.TopicPartition.Topic + "_error"
@@ -101,9 +99,10 @@ func kafkaSendToDlq(
 
 	msg.TopicPartition.Topic = &tpn
 	msg.TopicPartition.Partition = kafka.PartitionAny
-	if err = p.Produce(msg, nil); err != nil {
-		panic(err)
+	msg.Key = []byte(er.Error())
+	dlc := make(chan kafka.Event)
+	if er = p.Produce(msg, dlc); er != nil {
+		panic(er)
 	}
-
-	p.Flush(15 * 100)
+	<-dlc
 }

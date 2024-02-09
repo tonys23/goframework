@@ -2,7 +2,9 @@ package goframework
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"math/rand"
 	"os"
 	"reflect"
 	"regexp"
@@ -401,6 +403,66 @@ func (r *MongoDbRepository[T]) DeleteMany(
 	}
 
 	return nil
+}
+
+const LOKED = "locked"
+const LOKED_EXP = time.Minute
+
+var UNLOCK = map[string]interface{}{
+	LOKED: false,
+}
+var LOCK = map[string]interface{}{
+	LOKED: true,
+}
+
+func rand_await() {
+	l := rand.Intn(10)
+	for i := 0; i < l; i++ {
+		rt := rand.Intn(1000)
+		time.Sleep(time.Nanosecond * time.Duration(rt))
+	}
+}
+
+func (r *MongoDbRepository[T]) lock(ctx context.Context, key map[string]interface{}, d time.Time) error {
+	if time.Until(d) > LOKED_EXP {
+		return errors.New("lock register expired")
+	}
+	m := map[string]interface{}{}
+	if err := r.collection.FindOne(ctx, key).Decode(&m); err != nil {
+		return err
+	}
+	if v, ok := m[LOKED]; ok && v.(bool) {
+		rand_await()
+		return r.lock(ctx, key, d)
+	}
+	return nil
+}
+
+func (r *MongoDbRepository[T]) Unlock(
+	ctx context.Context,
+	id interface{}) error {
+	key := map[string]interface{}{"_id": id}
+	appendTenantToFilter(ctx, key)
+	if _, err := r.collection.UpdateOne(ctx, key, UNLOCK); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *MongoDbRepository[T]) GetLock(
+	ctx context.Context,
+	id interface{}) (*T, error) {
+	key := map[string]interface{}{"_id": id}
+	appendTenantToFilter(ctx, key)
+	var t T
+	rand_await()
+	if err := r.lock(ctx, key, time.Now()); err != nil {
+		return nil, err
+	}
+	if err := r.collection.FindOneAndUpdate(ctx, key, LOCK).Decode(&t); err != nil {
+		return nil, err
+	}
+	return &t, nil
 }
 
 func (r *MongoDbRepository[T]) DeleteForce(
