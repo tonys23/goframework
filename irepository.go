@@ -43,4 +43,8 @@ type IRepository[T interface{}] interface {
 	Count(ctx context.Context,
 		filter map[string]interface{},
 		optsFind ...*options.CountOptions) int64
+	GetLock(ctx context.Context,
+		id interface{}) (*T, error)
+	Unlock(ctx context.Context,
+		id interface{})
 }
