@@ -2,6 +2,7 @@ package goframework
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/rand"
 	"os"
@@ -405,6 +406,14 @@ func (r *MongoDbRepository[T]) DeleteMany(
 }
 
 const LOKED = "locked"
+const LOKED_EXP = time.Minute
+
+var UNLOCK = map[string]interface{}{
+	LOKED: false,
+}
+var LOCK = map[string]interface{}{
+	LOKED: true,
+}
 
 func rand_await() {
 	l := rand.Intn(10)
@@ -414,14 +423,17 @@ func rand_await() {
 	}
 }
 
-func (r *MongoDbRepository[T]) lock(ctx context.Context, key map[string]interface{}) error {
+func (r *MongoDbRepository[T]) lock(ctx context.Context, key map[string]interface{}, d time.Time) error {
+	if time.Until(d) > LOKED_EXP {
+		return errors.New("lock register expired")
+	}
 	m := map[string]interface{}{}
 	if err := r.collection.FindOne(ctx, key).Decode(&m); err != nil {
 		return err
 	}
 	if v, ok := m[LOKED]; ok && v.(bool) {
 		rand_await()
-		return r.lock(ctx, key)
+		return r.lock(ctx, key, d)
 	}
 	return nil
 }
@@ -431,13 +443,7 @@ func (r *MongoDbRepository[T]) Unlock(
 	id interface{}) error {
 	key := map[string]interface{}{"_id": id}
 	appendTenantToFilter(ctx, key)
-	if os.Getenv("env") == "local" {
-		_, obj, err := bson.MarshalValue(key)
-		fmt.Print(bson.Raw(obj), err)
-	}
-	if _, err := r.collection.UpdateOne(ctx, key, map[string]interface{}{
-		LOKED: false,
-	}); err != nil {
+	if _, err := r.collection.UpdateOne(ctx, key, UNLOCK); err != nil {
 		return err
 	}
 	return nil
@@ -448,18 +454,12 @@ func (r *MongoDbRepository[T]) GetLock(
 	id interface{}) (*T, error) {
 	key := map[string]interface{}{"_id": id}
 	appendTenantToFilter(ctx, key)
-	if os.Getenv("env") == "local" {
-		_, obj, err := bson.MarshalValue(key)
-		fmt.Print(bson.Raw(obj), err)
-	}
 	var t T
 	rand_await()
-	r.lock(ctx, key)
-	if err := r.collection.FindOneAndUpdate(ctx, map[string]interface{}{"_id": key["_id"]}, map[string]interface{}{
-		"$set": map[string]interface{}{
-			LOKED: true,
-		},
-	}).Decode(&t); err != nil {
+	if err := r.lock(ctx, key, time.Now()); err != nil {
+		return nil, err
+	}
+	if err := r.collection.FindOneAndUpdate(ctx, key, LOCK).Decode(&t); err != nil {
 		return nil, err
 	}
 	return &t, nil
