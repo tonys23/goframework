@@ -20,6 +20,7 @@ type (
 	}
 	Producer[T interface{}] interface {
 		Publish(ctx context.Context, msgs ...*T) error
+		PublishWithKey(ctx context.Context, key []byte, msgs ...*T) error
 	}
 )
 
