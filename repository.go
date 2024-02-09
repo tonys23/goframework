@@ -3,6 +3,7 @@ package goframework
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"os"
 	"reflect"
 	"regexp"
@@ -401,6 +402,67 @@ func (r *MongoDbRepository[T]) DeleteMany(
 	}
 
 	return nil
+}
+
+const LOKED = "locked"
+
+func rand_await() {
+	l := rand.Intn(10)
+	for i := 0; i < l; i++ {
+		rt := rand.Intn(1000)
+		time.Sleep(time.Nanosecond * time.Duration(rt))
+	}
+}
+
+func (r *MongoDbRepository[T]) lock(ctx context.Context, key map[string]interface{}) error {
+	m := map[string]interface{}{}
+	if err := r.collection.FindOne(ctx, key).Decode(&m); err != nil {
+		return err
+	}
+	if v, ok := m[LOKED]; ok && v.(bool) {
+		rand_await()
+		return r.lock(ctx, key)
+	}
+	return nil
+}
+
+func (r *MongoDbRepository[T]) Unlock(
+	ctx context.Context,
+	id interface{}) error {
+	key := map[string]interface{}{"_id": id}
+	appendTenantToFilter(ctx, key)
+	if os.Getenv("env") == "local" {
+		_, obj, err := bson.MarshalValue(key)
+		fmt.Print(bson.Raw(obj), err)
+	}
+	if _, err := r.collection.UpdateOne(ctx, key, map[string]interface{}{
+		LOKED: false,
+	}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *MongoDbRepository[T]) GetLock(
+	ctx context.Context,
+	id interface{}) (*T, error) {
+	key := map[string]interface{}{"_id": id}
+	appendTenantToFilter(ctx, key)
+	if os.Getenv("env") == "local" {
+		_, obj, err := bson.MarshalValue(key)
+		fmt.Print(bson.Raw(obj), err)
+	}
+	var t T
+	rand_await()
+	r.lock(ctx, key)
+	if err := r.collection.FindOneAndUpdate(ctx, map[string]interface{}{"_id": key["_id"]}, map[string]interface{}{
+		"$set": map[string]interface{}{
+			LOKED: true,
+		},
+	}).Decode(&t); err != nil {
+		return nil, err
+	}
+	return &t, nil
 }
 
 func (r *MongoDbRepository[T]) DeleteForce(

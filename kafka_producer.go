@@ -128,7 +128,7 @@ func (kp *KafkaProducer[T]) PublishWithKey(ctx context.Context, key []byte, msgs
 			return err
 		}
 
-		delivery_chan := make(chan kafka.Event, 10000)
+		delivery_chan := make(chan kafka.Event)
 		if err = p.Produce(&kafka.Message{
 			TopicPartition: kafka.TopicPartition{
 				Topic:     &kp.kcs.Topic,
@@ -140,6 +140,7 @@ func (kp *KafkaProducer[T]) PublishWithKey(ctx context.Context, key []byte, msgs
 			Headers: headers}, delivery_chan); err != nil {
 			return err
 		}
+		<-delivery_chan
 
 		go func() {
 			for e := range p.Events() {
@@ -192,7 +193,7 @@ func (kp *KafkaProducer[T]) Publish(ctx context.Context, msgs ...*T) error {
 			return err
 		}
 
-		delivery_chan := make(chan kafka.Event, 10000)
+		delivery_chan := make(chan kafka.Event)
 		if err = kp.kp.Produce(&kafka.Message{TopicPartition: kafka.TopicPartition{
 			Topic:     &kp.kcs.Topic,
 			Partition: kafka.PartitionAny,
@@ -201,6 +202,7 @@ func (kp *KafkaProducer[T]) Publish(ctx context.Context, msgs ...*T) error {
 			fmt.Println(err.Error())
 			return err
 		}
+		<-delivery_chan
 	}
 
 	return nil
