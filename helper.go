@@ -54,7 +54,7 @@ func getContextHeader(c context.Context, key string) string {
 		return c.Request.Header.Get(key)
 	case *ConsumerContext:
 		for _, kh := range c.Msg.Headers {
-			if kh.Key == key {
+			if kh.Key == key && len(kh.Value) > 0 {
 				return string(kh.Value)
 			}
 		}

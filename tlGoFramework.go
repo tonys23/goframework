@@ -13,6 +13,7 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt"
+	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"github.com/spf13/viper"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -33,8 +34,16 @@ type GoFrameworkOptions interface {
 	run(gf *GoFramework)
 }
 
-func AddTenant() gin.HandlerFunc {
+func AddTenant(monitoring *Monitoring, v *viper.Viper) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
+
+		correlation := uuid.New()
+		if ctxCorrelation := getContextHeader(ctx, XCORRELATIONID); ctxCorrelation != "" {
+			correlation = uuid.MustParse(ctxCorrelation)
+		} else {
+			ctx.Request.Header.Add(XCORRELATIONID, correlation.String())
+		}
+
 		tokenString := ctx.GetHeader("Authorization")
 		if tokenString == "" {
 			ctx.Request.Header.Add(XTENANTID, "00000000-0000-0000-0000-000000000000")
@@ -55,6 +64,21 @@ func AddTenant() gin.HandlerFunc {
 
 			ctx.Request.Header.Add(XTENANTID, fmt.Sprint(claims["tenant_id"]))
 		}
+
+		sourcename := v.GetString("kafka.groupid")
+		if sourcename == "" {
+			sourcename, _ = os.Hostname()
+		}
+
+		mt := monitoring.Start(correlation, sourcename, TracingTypeControler)
+		mt.AddStack(100, ctx.FullPath())
+
+		ctx.Next()
+
+		mt.AddStack(100, fmt.Sprintf("RESULT: %s", ctx.Writer.Status()))
+
+		mt.End()
+
 	}
 }
 
@@ -72,13 +96,17 @@ func NewGoFramework(opts ...GoFrameworkOptions) *GoFramework {
 	cconfig.AllowHeaders = []string{"*", "Authorization"}
 
 	corsconfig := cors.New(cconfig)
-	gf.server.Use(corsconfig, AddTenant())
+
+	gf.ioc.Invoke(func(monitoring *Monitoring, v *viper.Viper) {
+		gf.server.Use(corsconfig, AddTenant(monitoring, v))
+	})
 
 	for _, opt := range opts {
 		opt.run(gf)
 	}
 
 	gf.ioc.Provide(initializeViper)
+	gf.ioc.Provide(NewMonitoring)
 	gf.ioc.Provide(newLog)
 	gf.ioc.Provide(func() gfAgentTelemetry { return gf.nrApplication })
 
@@ -260,8 +288,8 @@ func (gf *GoFramework) RegisterKafka(server string,
 	saslmechanism string,
 	saslusername string,
 	saslpassword string) {
-	err := gf.ioc.Provide(func() *GoKafka {
-		kc := NewKafkaConfigMap(server, groupId, securityprotocol, saslmechanism, saslusername, saslpassword)
+	err := gf.ioc.Provide(func(m *Monitoring) *GoKafka {
+		kc := NewKafkaConfigMap(server, groupId, securityprotocol, saslmechanism, saslusername, saslpassword, m)
 		if gf.nrApplication != nil {
 			kc.newMonitor(gf.nrApplication.getAgent())
 		}

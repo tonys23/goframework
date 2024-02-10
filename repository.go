@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/spf13/viper"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -32,18 +33,30 @@ type MongoDbRepository[T interface{}] struct {
 	db         *mongo.Database
 	collection *mongo.Collection
 	dataList   *DataList[T]
+	monitoring *Monitoring
+	sourceName string
 }
 
 func NewMongoDbRepository[T interface{}](
 	db *mongo.Database,
+	monitoring *Monitoring,
+	v *viper.Viper,
 ) IRepository[T] {
 	var r T
 	reg := regexp.MustCompile(`\[.*`)
 	coll := db.Collection(reg.ReplaceAllString(strings.ToLower(reflect.TypeOf(r).Name()), ""))
+
+	sourcename := v.GetString("kafka.groupid")
+	if sourcename == "" {
+		sourcename, _ = os.Hostname()
+	}
+
 	return &MongoDbRepository[T]{
 		db:         db,
 		collection: coll,
 		dataList:   &DataList[T]{},
+		monitoring: monitoring,
+		sourceName: sourcename,
 	}
 }
 
@@ -240,6 +253,15 @@ func (r *MongoDbRepository[T]) Insert(
 	ctx context.Context,
 	entity *T) error {
 
+	correlation := uuid.New()
+	if ctxCorrelation := getContextHeader(ctx, XCORRELATIONID); ctxCorrelation != "" {
+		correlation = uuid.MustParse(ctxCorrelation)
+	}
+	mt := r.monitoring.Start(correlation, r.sourceName, TracingTypeRepository)
+	mt.AddContent(entity)
+	mt.AddStack(100, "REPLACE")
+	mt.End()
+
 	opt := options.InsertOne()
 	opt.SetBypassDocumentValidation(true)
 
@@ -259,6 +281,16 @@ func (r *MongoDbRepository[T]) Insert(
 func (r *MongoDbRepository[T]) InsertAll(
 	ctx context.Context,
 	entities *[]T) error {
+
+	correlation := uuid.New()
+	if ctxCorrelation := getContextHeader(ctx, XCORRELATIONID); ctxCorrelation != "" {
+		correlation = uuid.MustParse(ctxCorrelation)
+	}
+
+	mt := r.monitoring.Start(correlation, r.sourceName, TracingTypeRepository)
+	mt.AddContent(entities)
+	mt.AddStack(100, "REPLACE")
+	mt.End()
 
 	var uis []interface{}
 	for _, ui := range *entities {
@@ -281,6 +313,16 @@ func (r *MongoDbRepository[T]) Replace(
 	ctx context.Context,
 	filter map[string]interface{},
 	entity *T) error {
+
+	correlation := uuid.New()
+	if ctxCorrelation := getContextHeader(ctx, XCORRELATIONID); ctxCorrelation != "" {
+		correlation = uuid.MustParse(ctxCorrelation)
+	}
+
+	mt := r.monitoring.Start(correlation, r.sourceName, TracingTypeRepository)
+	mt.AddContent(entity)
+	mt.AddStack(100, "REPLACE")
+	mt.End()
 
 	if tenantId := getContextHeader(ctx, XTENANTID); tenantId != "" {
 		if tid, err := uuid.Parse(tenantId); err == nil {
@@ -317,6 +359,16 @@ func (r *MongoDbRepository[T]) Update(
 	ctx context.Context,
 	filter map[string]interface{},
 	fields interface{}) error {
+
+	correlation := uuid.New()
+	if ctxCorrelation := getContextHeader(ctx, XCORRELATIONID); ctxCorrelation != "" {
+		correlation = uuid.MustParse(ctxCorrelation)
+	}
+
+	mt := r.monitoring.Start(correlation, r.sourceName, TracingTypeRepository)
+	mt.AddContent(fields)
+	mt.AddStack(100, "UPDATE")
+	mt.End()
 
 	if tenantId := getContextHeader(ctx, XTENANTID); tenantId != "" {
 		if tid, err := uuid.Parse(tenantId); err == nil {
@@ -361,6 +413,16 @@ func (r *MongoDbRepository[T]) Delete(
 
 	appendTenantToFilter(ctx, filter)
 
+	correlation := uuid.New()
+	if ctxCorrelation := getContextHeader(ctx, XCORRELATIONID); ctxCorrelation != "" {
+		correlation = uuid.MustParse(ctxCorrelation)
+	}
+
+	mt := r.monitoring.Start(correlation, r.sourceName, TracingTypeRepository)
+	mt.AddContent(filter)
+	mt.AddStack(100, "DELETE")
+	mt.End()
+
 	if os.Getenv("env") == "local" {
 		_, obj, err := bson.MarshalValue(filter)
 		fmt.Print(bson.Raw(obj), err)
@@ -385,6 +447,16 @@ func (r *MongoDbRepository[T]) DeleteMany(
 	filter map[string]interface{}) error {
 
 	appendTenantToFilter(ctx, filter)
+
+	correlation := uuid.New()
+	if ctxCorrelation := getContextHeader(ctx, XCORRELATIONID); ctxCorrelation != "" {
+		correlation = uuid.MustParse(ctxCorrelation)
+	}
+
+	mt := r.monitoring.Start(correlation, r.sourceName, TracingTypeRepository)
+	mt.AddContent(filter)
+	mt.AddStack(100, "DELETEMANY")
+	mt.End()
 
 	if os.Getenv("env") == "local" {
 		_, obj, err := bson.MarshalValue(filter)
@@ -471,6 +543,16 @@ func (r *MongoDbRepository[T]) DeleteForce(
 
 	appendTenantToFilter(ctx, filter)
 
+	correlation := uuid.New()
+	if ctxCorrelation := getContextHeader(ctx, XCORRELATIONID); ctxCorrelation != "" {
+		correlation = uuid.MustParse(ctxCorrelation)
+	}
+
+	mt := r.monitoring.Start(correlation, r.sourceName, TracingTypeRepository)
+	mt.AddContent(filter)
+	mt.AddStack(100, "DELETEFORCE")
+	mt.End()
+
 	if os.Getenv("env") == "local" {
 		_, obj, err := bson.MarshalValue(filter)
 		fmt.Print(bson.Raw(obj), err)
@@ -494,6 +576,16 @@ func (r *MongoDbRepository[T]) DeleteManyForce(
 	filter map[string]interface{}) error {
 
 	appendTenantToFilter(ctx, filter)
+
+	correlation := uuid.New()
+	if ctxCorrelation := getContextHeader(ctx, XCORRELATIONID); ctxCorrelation != "" {
+		correlation = uuid.MustParse(ctxCorrelation)
+	}
+
+	mt := r.monitoring.Start(correlation, r.sourceName, TracingTypeRepository)
+	mt.AddContent(filter)
+	mt.AddStack(100, "DELETEMANYFORCE")
+	mt.End()
 
 	if os.Getenv("env") == "local" {
 		_, obj, err := bson.MarshalValue(filter)

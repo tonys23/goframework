@@ -50,6 +50,7 @@ func NewKafkaConsumer(kcm *kafka.ConfigMap,
 
 func kafkaCallFnWithResilence(
 	ctx context.Context,
+	tm *TracingMonitor,
 	msg *kafka.Message,
 	kcm *kafka.ConfigMap,
 	kcs KafkaConsumerSettings,
@@ -67,18 +68,24 @@ func kafkaCallFnWithResilence(
 			fmt.Println(err.Error())
 			if kcs.Retries > 1 {
 				kcs.Retries--
-				kafkaCallFnWithResilence(ctx, msg, kcm, kcs, fn)
+				tm.AddStack(500, fmt.Sprintf("CONSUMER ERROR. RETRY %d: %s", kcs.Retries, err.Error()))
+				kafkaCallFnWithResilence(ctx, tm, msg, kcm, kcs, fn)
 				return
 			}
-			kafkaSendToDlq(cctx, &kcs, kcm, msg, err)
+			kafkaSendToDlq(cctx, tm, &kcs, kcm, msg, err)
+			tm.AddStack(500, "CONSUMER ERROR.")
+
 		}
 	}()
 
+	tm.AddStack(100, "CONSUMING...")
 	fn(cctx)
+	tm.AddStack(200, "SUCCESSFULLY CONSUMED")
 }
 
 func kafkaSendToDlq(
 	ctx context.Context,
+	tm *TracingMonitor,
 	kcs *KafkaConsumerSettings,
 	kcm *kafka.ConfigMap,
 	msg *kafka.Message,
@@ -102,7 +109,9 @@ func kafkaSendToDlq(
 	msg.Key = []byte(er.Error())
 	dlc := make(chan kafka.Event)
 	if er = p.Produce(msg, dlc); er != nil {
+		tm.AddStack(500, "ERROR TO PRODUCE ERROR MSG: "+er.Error())
 		panic(er)
 	}
 	<-dlc
+	tm.AddStack(100, "ERROR PRODUCED IN "+tpn)
 }

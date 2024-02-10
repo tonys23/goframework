@@ -32,7 +32,8 @@ type (
 )
 
 func NewKafkaProducer[T interface{}](k *GoKafka,
-	kcs *KafkaProducerSettings) Producer[T] {
+	kcs *KafkaProducerSettings,
+) Producer[T] {
 
 	hostname, _ := os.Hostname()
 
@@ -114,20 +115,26 @@ func (kp *KafkaProducer[T]) PublishWithKey(ctx context.Context, key []byte, msgs
 	for _, m := range msgs {
 
 		hasCorrelationID := false
+		correlation := uuid.New()
 		for _, v := range headers {
-			if v.Key == "X-Correlation-Id" && len(v.Value) > 0 {
+			if v.Key == XCORRELATIONID && len(v.Value) > 0 {
 				hasCorrelationID = true
+				correlation = uuid.MustParse(string(v.Value))
 			}
 		}
 		if !hasCorrelationID {
-			headers = append(headers, kafka.Header{Key: "X-Correlation-Id", Value: []byte(uuid.NewString())})
+			headers = append(headers, kafka.Header{Key: XCORRELATIONID, Value: []byte(correlation.String())})
 		}
+
+		tracing := kp.k.monitoring.Start(correlation, kp.k.groupId, TracingTypeProducer)
 
 		data, err := json.Marshal(m)
 		if err != nil {
 			return err
 		}
 
+		tracing.AddContent(m)
+		tracing.AddStack(100, "PRODUCING...")
 		delivery_chan := make(chan kafka.Event)
 		if err = p.Produce(&kafka.Message{
 			TopicPartition: kafka.TopicPartition{
@@ -138,9 +145,11 @@ func (kp *KafkaProducer[T]) PublishWithKey(ctx context.Context, key []byte, msgs
 			Key:     key,
 			Value:   data,
 			Headers: headers}, delivery_chan); err != nil {
+			tracing.AddStack(500, "ERROR TO PRODUCING: "+err.Error())
 			return err
 		}
 		<-delivery_chan
+		tracing.AddStack(200, "SUCCESSFULLY PRODUCED")
 
 		go func() {
 			for e := range p.Events() {
@@ -176,34 +185,42 @@ func (kp *KafkaProducer[T]) Publish(ctx context.Context, msgs ...*T) error {
 			XAUTHORID:      XAUTHORID,
 			XCORRELATIONID: XCORRELATIONID})
 
+	hasCorrelationID := false
+	correlation := uuid.New()
+	for _, v := range headers {
+		if v.Key == XCORRELATIONID && len(v.Value) > 0 {
+			hasCorrelationID = true
+			correlation = uuid.MustParse(string(v.Value))
+		}
+	}
+	if !hasCorrelationID {
+		headers = append(headers, kafka.Header{Key: XCORRELATIONID, Value: []byte(correlation.String())})
+	}
+
+	tracing := kp.k.monitoring.Start(correlation, kp.k.groupId, TracingTypeProducer)
+
 	for _, m := range msgs {
-
-		hasCorrelationID := false
-		for _, v := range headers {
-			if v.Key == XCORRELATIONID && len(v.Value) > 0 {
-				hasCorrelationID = true
-			}
-		}
-		if !hasCorrelationID {
-			headers = append(headers, kafka.Header{Key: XCORRELATIONID, Value: []byte(uuid.NewString())})
-		}
-
 		data, err := json.Marshal(m)
 		if err != nil {
 			return err
 		}
-
+		tracing.AddContent(m)
+		tracing.AddStack(100, "PRODUCING...")
 		delivery_chan := make(chan kafka.Event)
 		if err = kp.kp.Produce(&kafka.Message{TopicPartition: kafka.TopicPartition{
 			Topic:     &kp.kcs.Topic,
 			Partition: kafka.PartitionAny,
 			Offset:    kp.kcs.Offset,
 		}, Value: data, Headers: headers}, delivery_chan); err != nil {
+			tracing.AddStack(500, "ERROR TO PRODUCING: "+err.Error())
 			fmt.Println(err.Error())
 			return err
 		}
 		<-delivery_chan
+		tracing.AddStack(200, "SUCCESSFULLY PRODUCED")
 	}
+
+	tracing.End()
 
 	return nil
 }
