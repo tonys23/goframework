@@ -51,8 +51,14 @@ func NewMonitoring(v *viper.Viper) *Monitoring {
 	host := v.GetString("mongodb.connectionString")
 	user := v.GetString("mongodb.user")
 	pass := v.GetString("mongodb.pass")
-
 	tracing := !v.GetBool("tracing")
+
+	if host == "" {
+		return &Monitoring{
+			repo:    nil,
+			tracing: false,
+		}
+	}
 
 	opts := options.Client().ApplyURI(host)
 
