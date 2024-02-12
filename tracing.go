@@ -41,7 +41,8 @@ type (
 	}
 
 	Monitoring struct {
-		repo *mongo.Collection
+		repo    *mongo.Collection
+		tracing bool
 	}
 )
 
@@ -51,6 +52,8 @@ func NewMonitoring(v *viper.Viper) *Monitoring {
 	user := v.GetString("mongodb.user")
 	pass := v.GetString("mongodb.pass")
 
+	tracing := !v.GetBool("tracing")
+
 	opts := options.Client().ApplyURI(host)
 
 	if user != "" {
@@ -59,7 +62,8 @@ func NewMonitoring(v *viper.Viper) *Monitoring {
 	cl, _ := mongo.Connect(context.Background(), opts.SetRegistry(MongoRegistry))
 	db := cl.Database("monitoring")
 	return &Monitoring{
-		repo: db.Collection("tracing"),
+		repo:    db.Collection("tracing"),
+		tracing: tracing,
 	}
 }
 
@@ -82,8 +86,10 @@ func (m *TracingMonitor) End() {
 	if m.Trace == nil {
 		fmt.Println("Tracing not started")
 	} else {
-		if _, err := m.Monitor.repo.InsertOne(context.Background(), m.Trace); err != nil {
-			fmt.Println("Monitor with error")
+		if m.Monitor.tracing {
+			if _, err := m.Monitor.repo.InsertOne(context.Background(), m.Trace); err != nil {
+				fmt.Println("Monitor with error")
+			}
 		}
 	}
 }
