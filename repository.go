@@ -253,7 +253,9 @@ func (r *MongoDbRepository[T]) Insert(
 
 	correlation := uuid.New()
 	if ctxCorrelation := getContextHeader(ctx, XCORRELATIONID); ctxCorrelation != "" {
-		correlation = uuid.MustParse(ctxCorrelation)
+		if id, err := uuid.Parse(ctxCorrelation); err == nil {
+			correlation = id
+		}
 	}
 	mt := r.monitoring.Start(correlation, r.sourceName, TracingTypeRepository)
 	mt.AddContent(entity)
@@ -282,7 +284,9 @@ func (r *MongoDbRepository[T]) InsertAll(
 
 	correlation := uuid.New()
 	if ctxCorrelation := getContextHeader(ctx, XCORRELATIONID); ctxCorrelation != "" {
-		correlation = uuid.MustParse(ctxCorrelation)
+		if id, err := uuid.Parse(ctxCorrelation); err == nil {
+			correlation = id
+		}
 	}
 
 	mt := r.monitoring.Start(correlation, r.sourceName, TracingTypeRepository)
@@ -314,7 +318,9 @@ func (r *MongoDbRepository[T]) Replace(
 
 	correlation := uuid.New()
 	if ctxCorrelation := getContextHeader(ctx, XCORRELATIONID); ctxCorrelation != "" {
-		correlation = uuid.MustParse(ctxCorrelation)
+		if id, err := uuid.Parse(ctxCorrelation); err == nil {
+			correlation = id
+		}
 	}
 
 	mt := r.monitoring.Start(correlation, r.sourceName, TracingTypeRepository)
@@ -360,7 +366,9 @@ func (r *MongoDbRepository[T]) Update(
 
 	correlation := uuid.New()
 	if ctxCorrelation := getContextHeader(ctx, XCORRELATIONID); ctxCorrelation != "" {
-		correlation = uuid.MustParse(ctxCorrelation)
+		if id, err := uuid.Parse(ctxCorrelation); err == nil {
+			correlation = id
+		}
 	}
 
 	mt := r.monitoring.Start(correlation, r.sourceName, TracingTypeRepository)
@@ -413,7 +421,9 @@ func (r *MongoDbRepository[T]) Delete(
 
 	correlation := uuid.New()
 	if ctxCorrelation := getContextHeader(ctx, XCORRELATIONID); ctxCorrelation != "" {
-		correlation = uuid.MustParse(ctxCorrelation)
+		if id, err := uuid.Parse(ctxCorrelation); err == nil {
+			correlation = id
+		}
 	}
 
 	mt := r.monitoring.Start(correlation, r.sourceName, TracingTypeRepository)
@@ -448,7 +458,9 @@ func (r *MongoDbRepository[T]) DeleteMany(
 
 	correlation := uuid.New()
 	if ctxCorrelation := getContextHeader(ctx, XCORRELATIONID); ctxCorrelation != "" {
-		correlation = uuid.MustParse(ctxCorrelation)
+		if id, err := uuid.Parse(ctxCorrelation); err == nil {
+			correlation = id
+		}
 	}
 
 	mt := r.monitoring.Start(correlation, r.sourceName, TracingTypeRepository)
@@ -543,7 +555,9 @@ func (r *MongoDbRepository[T]) DeleteForce(
 
 	correlation := uuid.New()
 	if ctxCorrelation := getContextHeader(ctx, XCORRELATIONID); ctxCorrelation != "" {
-		correlation = uuid.MustParse(ctxCorrelation)
+		if id, err := uuid.Parse(ctxCorrelation); err == nil {
+			correlation = id
+		}
 	}
 
 	mt := r.monitoring.Start(correlation, r.sourceName, TracingTypeRepository)
@@ -577,7 +591,9 @@ func (r *MongoDbRepository[T]) DeleteManyForce(
 
 	correlation := uuid.New()
 	if ctxCorrelation := getContextHeader(ctx, XCORRELATIONID); ctxCorrelation != "" {
-		correlation = uuid.MustParse(ctxCorrelation)
+		if id, err := uuid.Parse(ctxCorrelation); err == nil {
+			correlation = id
+		}
 	}
 
 	mt := r.monitoring.Start(correlation, r.sourceName, TracingTypeRepository)
