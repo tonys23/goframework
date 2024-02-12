@@ -484,9 +484,7 @@ var UNLOCK = map[string]interface{}{
 	LOKED: false,
 }
 var LOCK = map[string]interface{}{
-	"$set": map[string]interface{}{
-		LOKED: true,
-	},
+	LOKED: true,
 }
 
 func rand_await() {

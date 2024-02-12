@@ -107,11 +107,6 @@ func (kp *KafkaProducer[T]) PublishWithKey(ctx context.Context, key []byte, msgs
 			"X-Author-Id":      "X-Author-Id",
 			"X-Correlation-Id": "X-Correlation-Id"})
 
-	p, err := kafka.NewProducer(kp.kcm)
-	if err != nil {
-		return err
-	}
-
 	for _, m := range msgs {
 
 		hasCorrelationID := false
@@ -136,7 +131,7 @@ func (kp *KafkaProducer[T]) PublishWithKey(ctx context.Context, key []byte, msgs
 		tracing.AddContent(m)
 		tracing.AddStack(100, "PRODUCING...")
 		delivery_chan := make(chan kafka.Event)
-		if err = p.Produce(&kafka.Message{
+		if err = kp.kp.Produce(&kafka.Message{
 			TopicPartition: kafka.TopicPartition{
 				Topic:     &kp.kcs.Topic,
 				Partition: kafka.PartitionAny,
@@ -152,7 +147,7 @@ func (kp *KafkaProducer[T]) PublishWithKey(ctx context.Context, key []byte, msgs
 		tracing.AddStack(200, "SUCCESSFULLY PRODUCED")
 
 		go func() {
-			for e := range p.Events() {
+			for e := range kp.kp.Events() {
 				switch ev := e.(type) {
 				case *kafka.Message:
 					if ev.TopicPartition.Error != nil {
@@ -163,7 +158,7 @@ func (kp *KafkaProducer[T]) PublishWithKey(ctx context.Context, key []byte, msgs
 					}
 				}
 			}
-			defer p.Close()
+			defer kp.kp.Close()
 		}()
 
 	}
