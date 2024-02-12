@@ -99,10 +99,6 @@ func NewGoFramework(opts ...GoFrameworkOptions) *GoFramework {
 
 	corsconfig := cors.New(cconfig)
 
-	gf.ioc.Invoke(func(monitoring *Monitoring, v *viper.Viper) {
-		gf.server.Use(corsconfig, AddTenant(monitoring, v))
-	})
-
 	for _, opt := range opts {
 		opt.run(gf)
 	}
@@ -111,6 +107,10 @@ func NewGoFramework(opts ...GoFrameworkOptions) *GoFramework {
 	gf.ioc.Provide(NewMonitoring)
 	gf.ioc.Provide(newLog)
 	gf.ioc.Provide(func() gfAgentTelemetry { return gf.nrApplication })
+
+	gf.ioc.Invoke(func(monitoring *Monitoring, v *viper.Viper) {
+		gf.server.Use(corsconfig, AddTenant(monitoring, v))
+	})
 
 	gf.server.GET("/health", func(ctx *gin.Context) {
 

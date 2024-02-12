@@ -54,11 +54,12 @@ func GetContextHeader(c context.Context, keys ...string) string {
 	for _, key := range keys {
 		switch c := c.(type) {
 		case *gin.Context:
-			if tid, err := GetTenantByToken(c); err == nil {
-				return tid.String()
-			}
 			if sid := c.Request.Header.Get(key); sid != "" {
 				return sid
+			}
+
+			if tid, err := GetTenantByToken(c); err == nil {
+				return tid.String()
 			}
 		case *ConsumerContext:
 			for _, kh := range c.Msg.Headers {
