@@ -72,7 +72,6 @@ func appendTenantToFilterAgg(ctx context.Context, filterAggregator map[string][]
 				bson.D{{"tenantId", uuid.Nil}},
 			},
 			})
-			filterAggregator["$and"] = append(filterAggregator["$and"])
 		}
 	}
 }
@@ -118,8 +117,7 @@ func (r *MongoDbRepository[T]) GetAllSkipTake(
 	result := &DataList[T]{}
 
 	filterAggregator := make(map[string][]interface{})
-	filterAggregator["$and"] = append(filterAggregator["$and"], filter)
-
+	filterAggregator["$and"] = append(filterAggregator["$and"], filter, bson.D{{"active", true}})
 	appendTenantToFilterAgg(ctx, filterAggregator)
 
 	opts := make([]*options.FindOptions, 0)
