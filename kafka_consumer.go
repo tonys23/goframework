@@ -2,6 +2,7 @@ package goframework
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
@@ -48,6 +49,19 @@ func NewKafkaConsumer(kcm *kafka.ConfigMap,
 	return kc
 }
 
+func recover_error(fn func(error)) {
+	if e := recover(); e != nil {
+		switch ee := e.(type) {
+		case error:
+			fn(ee)
+		case string:
+			fn(errors.New(ee))
+		default:
+			fn(fmt.Errorf("undefined error: %v", ee))
+		}
+	}
+}
+
 func kafkaCallFnWithResilence(
 	ctx context.Context,
 	tm *TracingMonitor,
@@ -62,22 +76,17 @@ func kafkaCallFnWithResilence(
 		Faulted:          kcs.Retries == 0,
 		Msg:              msg}
 
-	defer func() {
-		if e := recover(); e != nil {
-			err := e.(error)
-			fmt.Println(err.Error())
-			if kcs.Retries > 1 {
-				kcs.Retries--
-				tm.AddStack(500, fmt.Sprintf("CONSUMER ERROR. RETRY %d: %s", kcs.Retries, err.Error()))
-				kafkaCallFnWithResilence(ctx, tm, msg, kcm, kcs, fn)
-				return
-			}
-			kafkaSendToDlq(cctx, tm, &kcs, kcm, msg, err)
-			tm.AddStack(500, "CONSUMER ERROR.")
-
+	defer recover_error(func(err error) {
+		fmt.Println(err.Error())
+		if kcs.Retries > 1 {
+			kcs.Retries--
+			tm.AddStack(500, fmt.Sprintf("CONSUMER ERROR. RETRY %d: %s", kcs.Retries, err.Error()))
+			kafkaCallFnWithResilence(ctx, tm, msg, kcm, kcs, fn)
+			return
 		}
-	}()
-
+		kafkaSendToDlq(cctx, tm, &kcs, kcm, msg, err)
+		tm.AddStack(500, "CONSUMER ERROR.")
+	})
 	tm.AddStack(100, "CONSUMING...")
 	fn(cctx)
 	tm.AddStack(200, "SUCCESSFULLY CONSUMED")
