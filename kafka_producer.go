@@ -114,7 +114,9 @@ func (kp *KafkaProducer[T]) PublishWithKey(ctx context.Context, key []byte, msgs
 		for _, v := range headers {
 			if v.Key == XCORRELATIONID && len(v.Value) > 0 {
 				hasCorrelationID = true
-				correlation = uuid.MustParse(string(v.Value))
+				if id, err := uuid.Parse(string(v.Value)); err == nil {
+					correlation = id
+				}
 			}
 		}
 		if !hasCorrelationID {
@@ -185,7 +187,9 @@ func (kp *KafkaProducer[T]) Publish(ctx context.Context, msgs ...*T) error {
 	for _, v := range headers {
 		if v.Key == XCORRELATIONID && len(v.Value) > 0 {
 			hasCorrelationID = true
-			correlation = uuid.MustParse(string(v.Value))
+			if id, err := uuid.Parse(string(v.Value)); err == nil {
+				correlation = id
+			}
 		}
 	}
 	if !hasCorrelationID {

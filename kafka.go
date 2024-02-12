@@ -171,7 +171,9 @@ func (k *GoKafka) ConsumerMultiRoutine(
 				correlation := uuid.New()
 				for _, v := range msg.Headers {
 					if v.Key == XCORRELATIONID && len(v.Value) > 0 {
-						correlation = uuid.MustParse(string(v.Value))
+						if id, err := uuid.Parse(string(v.Value)); err == nil {
+							correlation = id
+						}
 					}
 				}
 
@@ -268,7 +270,9 @@ func (k *GoKafka) Consumer(topic string, fn ConsumerFunc) {
 			correlation := uuid.New()
 			for _, v := range msg.Headers {
 				if v.Key == XCORRELATIONID && len(v.Value) > 0 {
-					correlation = uuid.MustParse(string(v.Value))
+					if id, err := uuid.Parse(string(v.Value)); err == nil {
+						correlation = id
+					}
 					break
 				}
 			}
