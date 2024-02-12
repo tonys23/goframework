@@ -65,7 +65,7 @@ func (r *MongoDbRepository[T]) ChangeCollection(collectionName string) {
 }
 
 func appendTenantToFilterAgg(ctx context.Context, filterAggregator map[string][]interface{}) {
-	if tenantId := GetContextHeader(ctx, XTENANTID); tenantId != "" {
+	if tenantId := GetContextHeader(ctx, XTENANTID, TTENANTID); tenantId != "" {
 		if tid, err := uuid.Parse(tenantId); err == nil {
 			filterAggregator["$and"] = append(filterAggregator["$and"], map[string]interface{}{"$or": bson.A{
 				bson.D{{"tenantId", tid}},
@@ -158,7 +158,7 @@ func (r *MongoDbRepository[T]) GetAllSkipTake(
 }
 
 func appendTenantToFilter(ctx context.Context, filter map[string]interface{}) {
-	if tenantId := GetContextHeader(ctx, XTENANTID); tenantId != "" {
+	if tenantId := GetContextHeader(ctx, XTENANTID, TTENANTID); tenantId != "" {
 		if tid, err := uuid.Parse(tenantId); err == nil {
 			filter["$or"] = bson.A{
 				bson.D{{"tenantId", tid}},
@@ -206,7 +206,7 @@ func (r *MongoDbRepository[T]) insertDefaultParam(ctx context.Context, entity *T
 		return nil, err
 	}
 	// helperContext(ctx, bsonM, map[string]string{"createdBy": XAUTHOR, "updatedBy": XAUTHOR})
-	if tenantid := GetContextHeader(ctx, XTENANTID); tenantid != "" {
+	if tenantid := GetContextHeader(ctx, XTENANTID, TTENANTID); tenantid != "" {
 		if tid, err := uuid.Parse(tenantid); err == nil {
 			bsonM["tenantId"] = tid
 		}
@@ -328,7 +328,7 @@ func (r *MongoDbRepository[T]) Replace(
 	mt.AddStack(100, "REPLACE")
 	mt.End()
 
-	if tenantId := GetContextHeader(ctx, XTENANTID); tenantId != "" {
+	if tenantId := GetContextHeader(ctx, XTENANTID, TTENANTID); tenantId != "" {
 		if tid, err := uuid.Parse(tenantId); err == nil {
 			filter["tenantId"] = tid
 		}
@@ -376,7 +376,7 @@ func (r *MongoDbRepository[T]) Update(
 	mt.AddStack(100, "UPDATE")
 	mt.End()
 
-	if tenantId := GetContextHeader(ctx, XTENANTID); tenantId != "" {
+	if tenantId := GetContextHeader(ctx, XTENANTID, TTENANTID); tenantId != "" {
 		if tid, err := uuid.Parse(tenantId); err == nil {
 			filter["tenantId"] = tid
 		}
@@ -628,7 +628,7 @@ func (r *MongoDbRepository[T]) Aggregate(ctx context.Context, pipeline []interfa
 
 	filter := bson.A{}
 
-	tenantId := GetContextHeader(ctx, XTENANTID)
+	tenantId := GetContextHeader(ctx, XTENANTID, TTENANTID)
 	if tid, err := uuid.Parse(tenantId); err == nil {
 		filter = bson.A{
 			bson.D{

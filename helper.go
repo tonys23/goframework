@@ -15,6 +15,7 @@ import (
 
 const (
 	XTENANTID      string = "X-Tenant-Id"
+	TTENANTID      string = "tenant_id"
 	XAUTHOR        string = "X-Author"
 	XAUTHORID      string = "X-Author-Id"
 	XCORRELATIONID string = "X-Correlation-Id"
@@ -49,20 +50,22 @@ func helperContext(c context.Context, filter map[string]interface{}, addfilter m
 	}
 }
 
-func GetContextHeader(c context.Context, key string) string {
-
-	switch c := c.(type) {
-	case *gin.Context:
-		return c.Request.Header.Get(key)
-	case *ConsumerContext:
-		for _, kh := range c.Msg.Headers {
-			if kh.Key == key && len(kh.Value) > 0 {
-				return string(kh.Value)
+func GetContextHeader(c context.Context, keys ...string) string {
+	for _, key := range keys {
+		switch c := c.(type) {
+		case *gin.Context:
+			return c.Request.Header.Get(key)
+		case *ConsumerContext:
+			for _, kh := range c.Msg.Headers {
+				if kh.Key == key && len(kh.Value) > 0 {
+					return string(kh.Value)
+				}
 			}
+		default:
+			return fmt.Sprint(c.Value(key))
 		}
-	default:
-		return fmt.Sprint(c.Value(key))
 	}
+
 	return ""
 }
 
@@ -102,7 +105,7 @@ func helperContextKafka(c context.Context, addfilter map[string]string) []kafka.
 }
 
 func ToContext(c context.Context) context.Context {
-	listContext := []string{XTENANTID, XAUTHOR, XAUTHORID, XCORRELATIONID}
+	listContext := []string{XTENANTID, XAUTHOR, XAUTHORID, XCORRELATIONID, TTENANTID}
 
 	cc := context.Background()
 	switch c := c.(type) {
