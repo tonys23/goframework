@@ -38,7 +38,7 @@ func AddTenant(monitoring *Monitoring, v *viper.Viper) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 
 		correlation := uuid.New()
-		if ctxCorrelation := getContextHeader(ctx, XCORRELATIONID); ctxCorrelation != "" {
+		if ctxCorrelation := GetContextHeader(ctx, XCORRELATIONID); ctxCorrelation != "" {
 			if id, err := uuid.Parse(ctxCorrelation); err == nil {
 				correlation = id
 			}

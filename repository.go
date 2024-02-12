@@ -65,7 +65,7 @@ func (r *MongoDbRepository[T]) ChangeCollection(collectionName string) {
 }
 
 func appendTenantToFilterAgg(ctx context.Context, filterAggregator map[string][]interface{}) {
-	if tenantId := getContextHeader(ctx, XTENANTID); tenantId != "" {
+	if tenantId := GetContextHeader(ctx, XTENANTID); tenantId != "" {
 		if tid, err := uuid.Parse(tenantId); err == nil {
 			filterAggregator["$and"] = append(filterAggregator["$and"], map[string]interface{}{"$or": bson.A{
 				bson.D{{"tenantId", tid}},
@@ -158,7 +158,7 @@ func (r *MongoDbRepository[T]) GetAllSkipTake(
 }
 
 func appendTenantToFilter(ctx context.Context, filter map[string]interface{}) {
-	if tenantId := getContextHeader(ctx, XTENANTID); tenantId != "" {
+	if tenantId := GetContextHeader(ctx, XTENANTID); tenantId != "" {
 		if tid, err := uuid.Parse(tenantId); err == nil {
 			filter["$or"] = bson.A{
 				bson.D{{"tenantId", tid}},
@@ -206,7 +206,7 @@ func (r *MongoDbRepository[T]) insertDefaultParam(ctx context.Context, entity *T
 		return nil, err
 	}
 	// helperContext(ctx, bsonM, map[string]string{"createdBy": XAUTHOR, "updatedBy": XAUTHOR})
-	if tenantid := getContextHeader(ctx, XTENANTID); tenantid != "" {
+	if tenantid := GetContextHeader(ctx, XTENANTID); tenantid != "" {
 		if tid, err := uuid.Parse(tenantid); err == nil {
 			bsonM["tenantId"] = tid
 		}
@@ -252,7 +252,7 @@ func (r *MongoDbRepository[T]) Insert(
 	entity *T) error {
 
 	correlation := uuid.New()
-	if ctxCorrelation := getContextHeader(ctx, XCORRELATIONID); ctxCorrelation != "" {
+	if ctxCorrelation := GetContextHeader(ctx, XCORRELATIONID); ctxCorrelation != "" {
 		if id, err := uuid.Parse(ctxCorrelation); err == nil {
 			correlation = id
 		}
@@ -283,7 +283,7 @@ func (r *MongoDbRepository[T]) InsertAll(
 	entities *[]T) error {
 
 	correlation := uuid.New()
-	if ctxCorrelation := getContextHeader(ctx, XCORRELATIONID); ctxCorrelation != "" {
+	if ctxCorrelation := GetContextHeader(ctx, XCORRELATIONID); ctxCorrelation != "" {
 		if id, err := uuid.Parse(ctxCorrelation); err == nil {
 			correlation = id
 		}
@@ -317,7 +317,7 @@ func (r *MongoDbRepository[T]) Replace(
 	entity *T) error {
 
 	correlation := uuid.New()
-	if ctxCorrelation := getContextHeader(ctx, XCORRELATIONID); ctxCorrelation != "" {
+	if ctxCorrelation := GetContextHeader(ctx, XCORRELATIONID); ctxCorrelation != "" {
 		if id, err := uuid.Parse(ctxCorrelation); err == nil {
 			correlation = id
 		}
@@ -328,7 +328,7 @@ func (r *MongoDbRepository[T]) Replace(
 	mt.AddStack(100, "REPLACE")
 	mt.End()
 
-	if tenantId := getContextHeader(ctx, XTENANTID); tenantId != "" {
+	if tenantId := GetContextHeader(ctx, XTENANTID); tenantId != "" {
 		if tid, err := uuid.Parse(tenantId); err == nil {
 			filter["tenantId"] = tid
 		}
@@ -365,7 +365,7 @@ func (r *MongoDbRepository[T]) Update(
 	fields interface{}) error {
 
 	correlation := uuid.New()
-	if ctxCorrelation := getContextHeader(ctx, XCORRELATIONID); ctxCorrelation != "" {
+	if ctxCorrelation := GetContextHeader(ctx, XCORRELATIONID); ctxCorrelation != "" {
 		if id, err := uuid.Parse(ctxCorrelation); err == nil {
 			correlation = id
 		}
@@ -376,7 +376,7 @@ func (r *MongoDbRepository[T]) Update(
 	mt.AddStack(100, "UPDATE")
 	mt.End()
 
-	if tenantId := getContextHeader(ctx, XTENANTID); tenantId != "" {
+	if tenantId := GetContextHeader(ctx, XTENANTID); tenantId != "" {
 		if tid, err := uuid.Parse(tenantId); err == nil {
 			filter["tenantId"] = tid
 		}
@@ -420,7 +420,7 @@ func (r *MongoDbRepository[T]) Delete(
 	appendTenantToFilter(ctx, filter)
 
 	correlation := uuid.New()
-	if ctxCorrelation := getContextHeader(ctx, XCORRELATIONID); ctxCorrelation != "" {
+	if ctxCorrelation := GetContextHeader(ctx, XCORRELATIONID); ctxCorrelation != "" {
 		if id, err := uuid.Parse(ctxCorrelation); err == nil {
 			correlation = id
 		}
@@ -457,7 +457,7 @@ func (r *MongoDbRepository[T]) DeleteMany(
 	appendTenantToFilter(ctx, filter)
 
 	correlation := uuid.New()
-	if ctxCorrelation := getContextHeader(ctx, XCORRELATIONID); ctxCorrelation != "" {
+	if ctxCorrelation := GetContextHeader(ctx, XCORRELATIONID); ctxCorrelation != "" {
 		if id, err := uuid.Parse(ctxCorrelation); err == nil {
 			correlation = id
 		}
@@ -554,7 +554,7 @@ func (r *MongoDbRepository[T]) DeleteForce(
 	appendTenantToFilter(ctx, filter)
 
 	correlation := uuid.New()
-	if ctxCorrelation := getContextHeader(ctx, XCORRELATIONID); ctxCorrelation != "" {
+	if ctxCorrelation := GetContextHeader(ctx, XCORRELATIONID); ctxCorrelation != "" {
 		if id, err := uuid.Parse(ctxCorrelation); err == nil {
 			correlation = id
 		}
@@ -590,7 +590,7 @@ func (r *MongoDbRepository[T]) DeleteManyForce(
 	appendTenantToFilter(ctx, filter)
 
 	correlation := uuid.New()
-	if ctxCorrelation := getContextHeader(ctx, XCORRELATIONID); ctxCorrelation != "" {
+	if ctxCorrelation := GetContextHeader(ctx, XCORRELATIONID); ctxCorrelation != "" {
 		if id, err := uuid.Parse(ctxCorrelation); err == nil {
 			correlation = id
 		}
@@ -623,7 +623,7 @@ func (r *MongoDbRepository[T]) Aggregate(ctx context.Context, pipeline []interfa
 
 	filter := bson.A{}
 
-	tenantId := getContextHeader(ctx, XTENANTID)
+	tenantId := GetContextHeader(ctx, XTENANTID)
 	if tid, err := uuid.Parse(tenantId); err == nil {
 		filter = bson.A{
 			bson.D{

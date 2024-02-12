@@ -47,7 +47,7 @@ func helperContext(c context.Context, filter map[string]interface{}, addfilter m
 	}
 }
 
-func getContextHeader(c context.Context, key string) string {
+func GetContextHeader(c context.Context, key string) string {
 
 	switch c := c.(type) {
 	case *gin.Context:
