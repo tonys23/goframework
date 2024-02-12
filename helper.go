@@ -8,6 +8,8 @@ import (
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt"
+	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson"
 )
 
@@ -141,4 +143,29 @@ func structToBson(inputStruct interface{}) bson.M {
 	}
 
 	return output
+}
+
+func GetTenantByToken(ctx *gin.Context) (uuid.UUID, error) {
+	tokenString := ctx.GetHeader("Authorization")
+
+	tokenString = strings.Replace(tokenString, "Bearer ", "", 1)
+	token, _, err := new(jwt.Parser).ParseUnverified(tokenString, jwt.MapClaims{})
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	if claims, ok := token.Claims.(jwt.MapClaims); ok {
+		tenant := fmt.Sprint(claims["tenant_id"])
+		if tenant == "" {
+			return uuid.Nil, fmt.Errorf("Tenant not found")
+		}
+		id, err := uuid.Parse(tenant)
+		if err != nil {
+			return uuid.Nil, fmt.Errorf("Tenant not found")
+		}
+
+		return id, nil
+	} else {
+		return uuid.Nil, fmt.Errorf("Tenant not found")
+	}
 }
