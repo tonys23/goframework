@@ -491,10 +491,14 @@ const LOKED = "locked"
 const LOKED_EXP = time.Minute
 
 var UNLOCK = map[string]interface{}{
-	LOKED: false,
+	"$set": map[string]interface{}{
+		LOKED: false,
+	},
 }
 var LOCK = map[string]interface{}{
-	LOKED: true,
+	"$set": map[string]interface{}{
+		LOKED: true,
+	},
 }
 
 func rand_await() {
@@ -523,9 +527,10 @@ func (r *MongoDbRepository[T]) lock(ctx context.Context, key map[string]interfac
 func (r *MongoDbRepository[T]) Unlock(
 	ctx context.Context,
 	id interface{}) error {
-	key := map[string]interface{}{"_id": id}
+	key := map[string]interface{}{"_id": id, LOKED: true}
 	appendTenantToFilter(ctx, key)
-	if _, err := r.collection.UpdateOne(ctx, key, UNLOCK); err != nil {
+	rand_await()
+	if _, err := r.collection.UpdateOne(ctx, key, UNLOCK); err != nil && err != mongo.ErrNoDocuments {
 		return err
 	}
 	return nil
