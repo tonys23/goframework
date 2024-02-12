@@ -64,7 +64,7 @@ func AddTenant(monitoring *Monitoring, v *viper.Viper) gin.HandlerFunc {
 				ctx.Request.Header.Add(XAUTHORID, fmt.Sprint(claims["sub"]))
 			}
 
-			ctx.Request.Header.Add(XTENANTID, fmt.Sprint(claims["tenant_id"]))
+			ctx.Request.Header.Add(XTENANTID, fmt.Sprint(claims[TTENANTID]))
 		}
 
 		sourcename := v.GetString("kafka.groupid")
