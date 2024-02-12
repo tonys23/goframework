@@ -54,7 +54,12 @@ func GetContextHeader(c context.Context, keys ...string) string {
 	for _, key := range keys {
 		switch c := c.(type) {
 		case *gin.Context:
-			return c.Request.Header.Get(key)
+			if tid, err := GetTenantByToken(c); err == nil {
+				return tid.String()
+			}
+			if sid := c.Request.Header.Get(key); sid != "" {
+				return sid
+			}
 		case *ConsumerContext:
 			for _, kh := range c.Msg.Headers {
 				if kh.Key == key && len(kh.Value) > 0 {
@@ -158,7 +163,7 @@ func GetTenantByToken(ctx *gin.Context) (uuid.UUID, error) {
 	}
 
 	if claims, ok := token.Claims.(jwt.MapClaims); ok {
-		tenant := fmt.Sprint(claims["tenant_id"])
+		tenant := fmt.Sprint(claims[TTENANTID])
 		if tenant == "" {
 			return uuid.Nil, fmt.Errorf("Tenant not found")
 		}
