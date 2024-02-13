@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/gin-gonic/gin"
@@ -19,6 +20,7 @@ const (
 	XAUTHOR        string = "X-Author"
 	XAUTHORID      string = "X-Author-Id"
 	XCORRELATIONID string = "X-Correlation-Id"
+	XCREATEDAT     string = "X-CreatedAt"
 )
 
 func helperContext(c context.Context, filter map[string]interface{}, addfilter map[string]string) {
@@ -51,6 +53,7 @@ func helperContext(c context.Context, filter map[string]interface{}, addfilter m
 }
 
 func GetContextHeader(c context.Context, keys ...string) string {
+
 	for _, key := range keys {
 		switch c := c.(type) {
 		case *gin.Context:
@@ -85,33 +88,93 @@ func getContext(c context.Context) context.Context {
 	}
 }
 
-func helperContextKafka(c context.Context, addfilter map[string]string) []kafka.Header {
+type kHeader struct {
+	keys map[string]string
+}
 
-	var filter []kafka.Header
+func (kh *kHeader) ToKafkaHeader() []kafka.Header {
+	var header []kafka.Header
+	for k, v := range kh.keys {
+		header = append(header, kafka.Header{Key: k, Value: []byte(v)})
+	}
+	return header
+}
+
+func (kh *kHeader) GetString(key string) string {
+	if v, ok := kh.keys[key]; ok {
+		return v
+	}
+	return ""
+}
+
+func (kh *kHeader) GetUuid(key string) uuid.UUID {
+	if v, ok := kh.keys[key]; ok {
+		if id, err := uuid.Parse(v); err == nil {
+			return id
+		}
+	}
+	return uuid.New()
+}
+
+func helperContextKafka(c context.Context, addfilter []string) *kHeader {
+
+	filter := &kHeader{keys: map[string]string{}}
 	switch c := c.(type) {
 	case *gin.Context:
-		for k, v := range addfilter {
-			filter = append(filter, kafka.Header{Key: k, Value: []byte(c.Request.Header.Get(v))})
+		for _, k := range addfilter {
+			value := c.Request.Header.Get(k)
+			if value == "" {
+				switch k {
+				case XCORRELATIONID:
+					value := uuid.NewString()
+					c.Request.Header.Add(XCORRELATIONID, value)
+				case XCREATEDAT:
+					value := time.Now().Format(time.RFC3339)
+					c.Request.Header.Add(XCORRELATIONID, value)
+				}
+			}
+			filter.keys[k] = value
 		}
 	case *ConsumerContext:
-		for k, v := range addfilter {
+		for _, k := range addfilter {
 			for _, kh := range c.Msg.Headers {
-				if kh.Key == v {
-					filter = append(filter, kafka.Header{Key: k, Value: []byte(kh.Value)})
+				if kh.Key == k {
+					filter.keys[k] = string(kh.Value)
 					break
+				}
+			}
+			if _, ok := filter.keys[k]; !ok {
+				switch k {
+				case XCORRELATIONID:
+					filter.keys[k] = uuid.NewString()
+				case XCREATEDAT:
+					filter.keys[k] = time.Now().Format(time.RFC3339)
 				}
 			}
 		}
 	default:
-		for k, v := range addfilter {
-			filter = append(filter, kafka.Header{Key: k, Value: []byte(fmt.Sprint(c.Value(v)))})
+		for _, k := range addfilter {
+
+			value := fmt.Sprint(c.Value(k))
+			if value == "" {
+				switch k {
+				case XCORRELATIONID:
+					value := uuid.NewString()
+					c = context.WithValue(c, k, value)
+				case XCREATEDAT:
+					value := time.Now().Format(time.RFC3339)
+					c = context.WithValue(c, k, value)
+				}
+			}
+			filter.keys[k] = value
 		}
 	}
+
 	return filter
 }
 
 func ToContext(c context.Context) context.Context {
-	listContext := []string{XTENANTID, XAUTHOR, XAUTHORID, XCORRELATIONID, TTENANTID}
+	listContext := []string{XTENANTID, XAUTHOR, XAUTHORID, XCORRELATIONID, TTENANTID, XCREATEDAT}
 
 	cc := context.Background()
 	switch c := c.(type) {
