@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -42,9 +43,14 @@ func AddTenant(monitoring *Monitoring, v *viper.Viper) gin.HandlerFunc {
 			if id, err := uuid.Parse(ctxCorrelation); err == nil {
 				correlation = id
 			}
-		} else {
-			ctx.Request.Header.Add(XCORRELATIONID, correlation.String())
 		}
+		ctx.Request.Header.Add(XCORRELATIONID, correlation.String())
+
+		createdat := time.Now().Format(time.RFC3339)
+		if ctxCreatedat := GetContextHeader(ctx, XCREATEDAT); ctxCreatedat != "" {
+			createdat = ctxCreatedat
+		}
+		ctx.Request.Header.Add(XCREATEDAT, createdat)
 
 		tokenString := ctx.GetHeader("Authorization")
 		if tokenString == "" {
