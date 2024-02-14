@@ -61,9 +61,6 @@ func GetContextHeader(c context.Context, keys ...string) string {
 				return sid
 			}
 
-			if tid, err := GetTenantByToken(c); err == nil {
-				return tid.String()
-			}
 		case *ConsumerContext:
 			for _, kh := range c.Msg.Headers {
 				if kh.Key == key && len(kh.Value) > 0 {
@@ -130,7 +127,7 @@ func helperContextKafka(c context.Context, addfilter []string) *kHeader {
 					c.Request.Header.Add(XCORRELATIONID, value)
 				case XCREATEDAT:
 					value := time.Now().Format(time.RFC3339)
-					c.Request.Header.Add(XCORRELATIONID, value)
+					c.Request.Header.Add(XCREATEDAT, value)
 				}
 			}
 			filter.keys[k] = value
