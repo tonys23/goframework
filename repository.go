@@ -68,8 +68,8 @@ func appendTenantToFilterAgg(ctx context.Context, filterAggregator map[string][]
 	if tenantId := GetContextHeader(ctx, XTENANTID, TTENANTID); tenantId != "" {
 		if tid, err := uuid.Parse(tenantId); err == nil {
 			filterAggregator["$and"] = append(filterAggregator["$and"], map[string]interface{}{"$or": bson.A{
-				bson.D{{"tenantId", tid}},
-				bson.D{{"tenantId", uuid.Nil}},
+				bson.D{{"TenantId", tid}},
+				bson.D{{"TenantId", uuid.Nil}},
 			},
 			})
 		}
@@ -82,7 +82,7 @@ func (r *MongoDbRepository[T]) GetAll(
 	optsFind ...*options.FindOptions) *[]T {
 
 	filterAggregator := make(map[string][]interface{})
-	filterAggregator["$and"] = append(filterAggregator["$and"], filter, bson.D{{"active", true}})
+	filterAggregator["$and"] = append(filterAggregator["$and"], filter, bson.D{{"Active", true}})
 
 	appendTenantToFilterAgg(ctx, filterAggregator)
 	if os.Getenv("env") == "local" {
@@ -117,7 +117,7 @@ func (r *MongoDbRepository[T]) GetAllSkipTake(
 	result := &DataList[T]{}
 
 	filterAggregator := make(map[string][]interface{})
-	filterAggregator["$and"] = append(filterAggregator["$and"], filter, bson.D{{"active", true}})
+	filterAggregator["$and"] = append(filterAggregator["$and"], filter, bson.D{{"Active", true}})
 	appendTenantToFilterAgg(ctx, filterAggregator)
 
 	opts := make([]*options.FindOptions, 0)
@@ -161,10 +161,10 @@ func appendTenantToFilter(ctx context.Context, filter map[string]interface{}) {
 	if tenantId := GetContextHeader(ctx, XTENANTID, TTENANTID); tenantId != "" {
 		if tid, err := uuid.Parse(tenantId); err == nil {
 			filter["$or"] = bson.A{
-				bson.D{{"tenantId", tid}},
-				bson.D{{"tenantId", uuid.Nil}},
+				bson.D{{"TenantId", tid}},
+				bson.D{{"TenantId", uuid.Nil}},
 			}
-			filter["active"] = true
+			filter["Active"] = true
 		}
 	}
 }
@@ -208,17 +208,17 @@ func (r *MongoDbRepository[T]) insertDefaultParam(ctx context.Context, entity *T
 	// helperContext(ctx, bsonM, map[string]string{"createdBy": XAUTHOR, "updatedBy": XAUTHOR})
 	if tenantid := GetContextHeader(ctx, XTENANTID, TTENANTID); tenantid != "" {
 		if tid, err := uuid.Parse(tenantid); err == nil {
-			bsonM["tenantId"] = tid
+			bsonM["TenantId"] = tid
 		}
 	}
 
 	var history = make(map[string]interface{})
-	history["actionAt"] = time.Now()
-	helperContext(ctx, history, map[string]string{"author": XAUTHOR, "authorId": XAUTHORID})
+	history["ActionAt"] = time.Now()
+	helperContext(ctx, history, map[string]string{"Author": XAUTHOR, "AuthorId": XAUTHORID})
 
-	bsonM["created"] = history
-	bsonM["updated"] = history
-	bsonM["active"] = true
+	bsonM["Created"] = history
+	bsonM["Updated"] = history
+	bsonM["Active"] = true
 
 	return bsonM, nil
 }
@@ -236,13 +236,13 @@ func (r *MongoDbRepository[T]) replaceDefaultParam(ctx context.Context, old bson
 	}
 
 	var history = make(map[string]interface{})
-	history["actionAt"] = time.Now()
-	helperContext(ctx, history, map[string]string{"author": XAUTHOR, "authorId": XAUTHORID})
+	history["ActionAt"] = time.Now()
+	helperContext(ctx, history, map[string]string{"Author": XAUTHOR, "AuthorId": XAUTHORID})
 
-	bsonM["tenantId"] = old["tenantId"]
-	bsonM["created"] = old["created"]
-	bsonM["updated"] = history
-	bsonM["active"] = old["active"]
+	bsonM["TenantId"] = old["TenantId"]
+	bsonM["Created"] = old["Created"]
+	bsonM["Updated"] = history
+	bsonM["Active"] = old["Active"]
 
 	return bsonM, nil
 }
@@ -330,7 +330,7 @@ func (r *MongoDbRepository[T]) Replace(
 
 	if tenantId := GetContextHeader(ctx, XTENANTID, TTENANTID); tenantId != "" {
 		if tid, err := uuid.Parse(tenantId); err == nil {
-			filter["tenantId"] = tid
+			filter["TenantId"] = tid
 		}
 	}
 
@@ -378,7 +378,7 @@ func (r *MongoDbRepository[T]) Update(
 
 	if tenantId := GetContextHeader(ctx, XTENANTID, TTENANTID); tenantId != "" {
 		if tid, err := uuid.Parse(tenantId); err == nil {
-			filter["tenantId"] = tid
+			filter["TenantId"] = tid
 		}
 	}
 	var setBson bson.M
@@ -390,9 +390,9 @@ func (r *MongoDbRepository[T]) Update(
 
 	// setBson := structToBson(fields)
 	var history = make(map[string]interface{})
-	history["actionAt"] = time.Now()
-	helperContext(ctx, history, map[string]string{"author": XAUTHOR, "authorId": XAUTHORID})
-	setBson["updated"] = history
+	history["ActionAt"] = time.Now()
+	helperContext(ctx, history, map[string]string{"Author": XAUTHOR, "AuthorId": XAUTHORID})
+	setBson["Updated"] = history
 	delete(setBson, "_id")
 
 	if os.Getenv("env") == "local" {
@@ -436,7 +436,7 @@ func (r *MongoDbRepository[T]) Delete(
 		fmt.Print(bson.Raw(obj), err)
 	}
 
-	setBson := bson.M{"active": false}
+	setBson := bson.M{"Active": false}
 	re, err := r.collection.UpdateOne(getContext(ctx), filter, map[string]interface{}{"$set": setBson})
 
 	if err != nil {
@@ -473,7 +473,7 @@ func (r *MongoDbRepository[T]) DeleteMany(
 		fmt.Print(bson.Raw(obj), err)
 	}
 
-	setBson := bson.M{"active": false}
+	setBson := bson.M{"Active": false}
 	re, err := r.collection.UpdateMany(getContext(ctx), filter, map[string]interface{}{"$set": setBson})
 
 	if err != nil {
@@ -636,11 +636,11 @@ func (r *MongoDbRepository[T]) Aggregate(ctx context.Context, pipeline []interfa
 					bson.D{
 						{"$or",
 							bson.A{
-								bson.D{{"tenantId", uuid.Nil}},
-								bson.D{{"tenantId", tid}},
+								bson.D{{"TenantId", uuid.Nil}},
+								bson.D{{"TenantId", tid}},
 							},
 						},
-						{"active", true},
+						{"Active", true},
 					},
 				},
 			},
@@ -650,7 +650,7 @@ func (r *MongoDbRepository[T]) Aggregate(ctx context.Context, pipeline []interfa
 			bson.D{
 				{"$match",
 					bson.D{
-						{"active", true},
+						{"Active", true},
 					},
 				},
 			},
@@ -673,7 +673,7 @@ func (r *MongoDbRepository[T]) Count(ctx context.Context,
 	filterAggregator["$and"] = append(filterAggregator["$and"], filter)
 
 	appendTenantToFilterAgg(ctx, filterAggregator)
-	filterAggregator["$and"] = append(filterAggregator["$and"], bson.D{{"active", true}})
+	filterAggregator["$and"] = append(filterAggregator["$and"], bson.D{{"Active", true}})
 
 	if os.Getenv("env") == "local" {
 		_, obj, err := bson.MarshalValue(filterAggregator)
