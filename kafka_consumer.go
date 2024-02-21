@@ -2,8 +2,10 @@ package goframework
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"runtime/debug"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 )
@@ -84,12 +86,19 @@ func kafkaCallFnWithResilence(
 			kafkaCallFnWithResilence(ctx, tm, msg, kcm, kcs, fn)
 			return
 		}
-		kafkaSendToDlq(cctx, tm, &kcs, kcm, msg, err)
+		kafkaSendToDlq(cctx, tm, &kcs, kcm, msg, err, debug.Stack())
 		tm.AddStack(500, "CONSUMER ERROR.")
 	})
 	tm.AddStack(100, "CONSUMING...")
 	fn(cctx)
 	tm.AddStack(200, "SUCCESSFULLY CONSUMED")
+}
+
+type consumerError struct {
+	Error   string
+	Group   string
+	Content map[string]interface{}
+	Stack   string
 }
 
 func kafkaSendToDlq(
@@ -98,7 +107,8 @@ func kafkaSendToDlq(
 	kcs *KafkaConsumerSettings,
 	kcm *kafka.ConfigMap,
 	msg *kafka.Message,
-	er error) {
+	er error,
+	stack []byte) {
 	p, err := kafka.NewProducer(kcm)
 	if err != nil {
 		panic(err)
@@ -113,9 +123,30 @@ func kafkaSendToDlq(
 		ReplicationFactor: 1,
 	})
 
+	v, _ := kcm.Get("group.id", "")
+	if err != nil {
+		v = ""
+	}
+
+	var content map[string]interface{}
+	if err := json.Unmarshal(msg.Value, &content); err != nil {
+		fmt.Print(err)
+	}
+
 	msg.TopicPartition.Topic = &tpn
 	msg.TopicPartition.Partition = kafka.PartitionAny
-	msg.Key = []byte(er.Error())
+	msgErr := &consumerError{
+		Error:   er.Error(),
+		Group:   fmt.Sprint(v),
+		Content: content,
+		Stack:   string(stack),
+	}
+	msgbkp := msg.Value
+	msg.Value, err = json.Marshal(msgErr)
+	if err != nil {
+		msg.Value = msgbkp
+	}
+
 	dlc := make(chan kafka.Event)
 	if er = p.Produce(msg, dlc); er != nil {
 		tm.AddStack(500, "ERROR TO PRODUCE ERROR MSG: "+er.Error())
