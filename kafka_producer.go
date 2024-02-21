@@ -61,11 +61,11 @@ func NewKafkaProducer[T interface{}](k *GoKafka,
 		kcm.SetKey("sasl.password", k.saslpassword)
 	}
 
-	// CreateKafkaTopic(context.Background(), kcm, &TopicConfiguration{
-	// 	Topic:             kcs.Topic,
-	// 	NumPartitions:     kcs.NumPartitions,
-	// 	ReplicationFactor: kcs.ReplicationFactor,
-	// })
+	CreateKafkaTopic(context.Background(), kcm, &TopicConfiguration{
+		Topic:             kcs.Topic,
+		NumPartitions:     kcs.NumPartitions,
+		ReplicationFactor: kcs.ReplicationFactor,
+	})
 	kp, err := kafka.NewProducer(kcm)
 	if err != nil {
 		return nil
