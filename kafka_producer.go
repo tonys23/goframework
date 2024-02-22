@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/google/uuid"
 	"github.com/newrelic/go-agent/v3/newrelic"
 )
 
@@ -155,6 +156,10 @@ func (kp *KafkaProducer[T]) PublishWithKey(ctx context.Context, key []byte, msgs
 	return nil
 }
 
+type baseStruct struct {
+	Id interface{}
+}
+
 func (kp *KafkaProducer[T]) Publish(ctx context.Context, msgs ...*T) error {
 
 	txn := newrelic.FromContext(ctx)
@@ -174,10 +179,23 @@ func (kp *KafkaProducer[T]) Publish(ctx context.Context, msgs ...*T) error {
 	tracing := kp.k.monitoring.Start(headers.GetUuid(XCORRELATIONID), kp.k.groupId, TracingTypeProducer)
 
 	for _, m := range msgs {
+
 		data, err := json.Marshal(m)
 		if err != nil {
 			return err
 		}
+
+		bId := []byte(uuid.NewString())
+		var basestruct baseStruct
+		if err := json.Unmarshal(data, &basestruct); err == nil {
+			switch t := basestruct.Id.(type) {
+			case uuid.UUID:
+				bId = t.NodeID()
+			case string:
+				bId = []byte(t)
+			}
+		}
+
 		tracing.AddContent(m)
 		tracing.AddStack(100, "PRODUCING...")
 		delivery_chan := make(chan kafka.Event)
@@ -185,7 +203,10 @@ func (kp *KafkaProducer[T]) Publish(ctx context.Context, msgs ...*T) error {
 			Topic:     &kp.kcs.Topic,
 			Partition: kafka.PartitionAny,
 			Offset:    kp.kcs.Offset,
-		}, Value: data, Headers: headers.ToKafkaHeader()}, delivery_chan); err != nil {
+		},
+			Value:   data,
+			Headers: headers.ToKafkaHeader(),
+			Key:     bId}, delivery_chan); err != nil {
 			tracing.AddStack(500, "ERROR TO PRODUCING: "+err.Error())
 			fmt.Println(err.Error())
 			return err
