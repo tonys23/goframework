@@ -11,7 +11,6 @@ import (
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/google/uuid"
-	newrelic "github.com/newrelic/go-agent/v3/newrelic"
 )
 
 type (
@@ -25,7 +24,7 @@ type (
 		server           string
 		groupId          string
 		monitoring       *Monitoring
-		nrapp            *newrelic.Application
+		nrapp            GfAgentTelemetry
 		securityprotocol string
 		saslmechanism    string
 		saslusername     string
@@ -51,7 +50,7 @@ func NewKafkaConfigMap(connectionString string,
 	}
 }
 
-func (k *GoKafka) newMonitor(nrapp *newrelic.Application) {
+func (k *GoKafka) newMonitor(nrapp GfAgentTelemetry) {
 	k.nrapp = nrapp
 }
 
@@ -153,7 +152,7 @@ func (k *GoKafka) ConsumerMultiRoutine(
 				cconsumer *kafka.Consumer,
 				ckc *kafka.ConfigMap,
 				ckcs KafkaConsumerSettings,
-				nrapp *newrelic.Application,
+				nrapp GfAgentTelemetry,
 				cfn ConsumerFunc) {
 				defer recover_all()
 				defer cconsumer.CommitMessage(cmsg)
@@ -162,10 +161,9 @@ func (k *GoKafka) ConsumerMultiRoutine(
 				}()
 
 				ctx := context.Background()
-				transaction := &newrelic.Transaction{}
+				transaction := &GfSpan{}
 				if nrapp != nil {
-					transaction = k.nrapp.StartTransaction("kafka/consumer")
-					ctx = newrelic.NewContext(ctx, transaction)
+					ctx, transaction = k.nrapp.StartTransaction(ctx, "kafka/consumer")
 				}
 
 				correlation := uuid.New()
@@ -256,10 +254,9 @@ func (k *GoKafka) Consumer(topic string, fn ConsumerFunc) {
 			msg, err := consumer.ReadMessage(-1)
 
 			ctx := context.Background()
-			transaction := &newrelic.Transaction{}
+			transaction := &GfSpan{}
 			if k.nrapp != nil {
-				transaction = k.nrapp.StartTransaction("kafka/consumer")
-				ctx = newrelic.NewContext(ctx, transaction)
+				ctx, transaction = k.nrapp.StartTransaction(ctx, "kafka/consumer")
 			}
 
 			if err != nil {
