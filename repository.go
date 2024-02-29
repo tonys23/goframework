@@ -488,7 +488,7 @@ func (r *MongoDbRepository[T]) DeleteMany(
 }
 
 const LOKED = "locked"
-const LOKED_EXP = time.Minute
+const LOKED_EXP = time.Second * 5
 
 var UNLOCK = map[string]interface{}{
 	"$set": map[string]interface{}{
