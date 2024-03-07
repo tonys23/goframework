@@ -413,6 +413,60 @@ func (r *MongoDbRepository[T]) Update(
 	return nil
 }
 
+func (r *MongoDbRepository[T]) UpdateMany(
+	ctx context.Context,
+	filter map[string]interface{},
+	fields interface{}) error {
+
+	correlation := uuid.New()
+	if ctxCorrelation := GetContextHeader(ctx, XCORRELATIONID); ctxCorrelation != "" {
+		if id, err := uuid.Parse(ctxCorrelation); err == nil {
+			correlation = id
+		}
+	}
+
+	mt := r.monitoring.Start(correlation, r.sourceName, TracingTypeRepository)
+	mt.AddContent(fields)
+	mt.AddStack(100, "UPDATE")
+	mt.End()
+
+	if tenantId := GetContextHeader(ctx, XTENANTID, TTENANTID); tenantId != "" {
+		if tid, err := uuid.Parse(tenantId); err == nil {
+			filter["tenantId"] = tid
+		}
+	}
+	var setBson bson.M
+	_, obj, err := bson.MarshalValueWithRegistry(MongoRegistry, fields)
+	if err != nil {
+		return err
+	}
+	bson.Unmarshal(obj, &setBson)
+
+	// setBson := structToBson(fields)
+	var history = make(map[string]interface{})
+	history["ActionAt"] = time.Now()
+	helperContext(ctx, history, map[string]string{"author": XAUTHOR, "authorId": XAUTHORID})
+	setBson["updated"] = history
+	delete(setBson, "_id")
+
+	if os.Getenv("env") == "local" {
+		// _, obj, err := bson.MarshalValue(filter)
+		fmt.Print(bson.Raw(obj))
+	}
+
+	re, err := r.collection.UpdateMany(getContext(ctx), filter, map[string]interface{}{"$set": setBson})
+
+	if err != nil {
+		return err
+	}
+
+	if re.MatchedCount == 0 {
+		return fmt.Errorf("MatchedCountZero")
+	}
+
+	return nil
+}
+
 func (r *MongoDbRepository[T]) Delete(
 	ctx context.Context,
 	filter map[string]interface{}) error {
