@@ -47,4 +47,8 @@ type IRepository[T interface{}] interface {
 		id interface{}) (*T, error)
 	Unlock(ctx context.Context,
 		id interface{}) error
+	UpdateMany(
+		ctx context.Context,
+		filter map[string]interface{},
+		fields interface{}) error
 }
