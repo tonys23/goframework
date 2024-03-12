@@ -91,6 +91,13 @@ func AddTenant(monitoring *Monitoring, v *viper.Viper) gin.HandlerFunc {
 }
 
 func NewGoFramework(opts ...GoFrameworkOptions) *GoFramework {
+	location, err := time.LoadLocation("UTC")
+
+	if err != nil {
+		panic(err)
+	}
+
+	time.Local = location
 
 	gf := &GoFramework{
 		ioc:           dig.New(),
@@ -135,7 +142,7 @@ func NewGoFramework(opts ...GoFrameworkOptions) *GoFramework {
 	if gf.agentTelemetry != nil {
 		gf.server.Use(gf.agentTelemetry.gin())
 	}
-	err := gf.ioc.Provide(func() *gin.RouterGroup { return gf.server.Group("/") })
+	err = gf.ioc.Provide(func() *gin.RouterGroup { return gf.server.Group("/") })
 	if err != nil {
 		log.Panic(err)
 	}
