@@ -65,7 +65,7 @@ func AddTenant(monitoring *Monitoring, v *viper.Viper) gin.HandlerFunc {
 		}
 
 		if claims, ok := token.Claims.(jwt.MapClaims); ok {
-			if ctx.Request.Method == "POST" || ctx.Request.Method == "PUT" || ctx.Request.Method == "DELETE" {
+			if ctx.Request.Method == http.MethodPost || ctx.Request.Method == http.MethodPut || ctx.Request.Method == http.MethodDelete || ctx.Request.Method == http.MethodPatch {
 				ctx.Request.Header.Add(XAUTHOR, fmt.Sprint(claims["name"]))
 				ctx.Request.Header.Add(XAUTHORID, fmt.Sprint(claims["sub"]))
 			}
