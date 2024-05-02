@@ -741,3 +741,19 @@ func (r *MongoDbRepository[T]) Count(ctx context.Context,
 
 	return count
 }
+
+func (r *MongoDbRepository[T]) SetExpiredAfterInsert(ctx context.Context, seconds int32) error {
+	opts := options.Index()
+	opts.SetExpireAfterSeconds(seconds)
+	index := mongo.IndexModel{
+		Keys:    bson.M{"created.ActionAt": 1},
+		Options: opts,
+	}
+
+	_, err := r.collection.Indexes().CreateOne(ctx, index)
+	if err != nil {
+		panic(err)
+	}
+
+	return nil
+}
