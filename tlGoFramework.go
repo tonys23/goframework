@@ -205,7 +205,7 @@ func (gf *GoFramework) Invoke(function interface{}) {
 }
 
 // mongo
-func (gf *GoFramework) RegisterDbMongo(host string, user string, pass string, database string) {
+func (gf *GoFramework) RegisterDbMongo(host string, user string, pass string, database string, normalize bool) {
 
 	opts := options.Client().ApplyURI(host)
 
@@ -218,7 +218,7 @@ func (gf *GoFramework) RegisterDbMongo(host string, user string, pass string, da
 	}
 
 	err := gf.ioc.Provide(func() *mongo.Database {
-		cli, err := newMongoClient(opts)
+		cli, err := newMongoClient(opts, normalize)
 		if err != nil {
 			return nil
 		}
@@ -229,7 +229,7 @@ func (gf *GoFramework) RegisterDbMongo(host string, user string, pass string, da
 
 	gf.healthCheck = append(gf.healthCheck, func() (string, bool) {
 		serviceName := "MDB"
-		cli, err := newMongoClient(opts)
+		cli, err := newMongoClient(opts, normalize)
 		defer func() {
 			if err = cli.Disconnect(context.TODO()); err != nil {
 				panic(err)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -17,6 +18,7 @@ import (
 
 var (
 	tUUID       = reflect.TypeOf(uuid.UUID{})
+	tstr        = reflect.TypeOf("")
 	uuidSubtype = byte(0x04)
 
 	MongoRegistry = bson.NewRegistryBuilder().
@@ -24,6 +26,14 @@ var (
 			RegisterTypeDecoder(tUUID, bsoncodec.ValueDecoderFunc(UuidDecodeValue)).
 			Build()
 )
+
+func StringNormalizeEncodeValue(ec bsoncodec.EncodeContext, vw bsonrw.ValueWriter, val reflect.Value) error {
+	if !val.IsValid() || val.Type() != tstr {
+		return bsoncodec.ValueEncoderError{Name: "stringNormalizeEncodeValue", Types: []reflect.Type{tstr}, Received: val}
+	}
+	b := val.Interface().(string)
+	return vw.WriteString(strings.ToUpper(b))
+}
 
 func UuidEncodeValue(ec bsoncodec.EncodeContext, vw bsonrw.ValueWriter, val reflect.Value) error {
 	if !val.IsValid() || val.Type() != tUUID {
@@ -66,9 +76,14 @@ func UuidDecodeValue(dc bsoncodec.DecodeContext, vr bsonrw.ValueReader, val refl
 	return nil
 }
 
-func newMongoClient(opts *options.ClientOptions) (*mongo.Client, error) {
+func newMongoClient(opts *options.ClientOptions, normalize bool) (*mongo.Client, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+
+	if normalize {
+		MongoRegistry.RegisterTypeEncoder(tstr, bsoncodec.ValueEncoderFunc(StringNormalizeEncodeValue))
+	}
+
 	return mongo.Connect(ctx, opts.SetRegistry(MongoRegistry))
 
 }
