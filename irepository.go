@@ -51,5 +51,13 @@ type IRepository[T interface{}] interface {
 		ctx context.Context,
 		filter map[string]interface{},
 		fields interface{}) error
+	PushMany(
+		ctx context.Context,
+		filter map[string]interface{},
+		fields interface{}) error
+	PullMany(
+		ctx context.Context,
+		filter map[string]interface{},
+		fields interface{}) error
 	SetExpiredAfterInsert(ctx context.Context, seconds int32) error
 }
