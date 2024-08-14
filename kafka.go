@@ -194,7 +194,103 @@ func (k *GoKafka) ConsumerMultiRoutine(
 	}(topic)
 }
 
-func (k *GoKafka) Consumer(topic string, fn ConsumerFunc, cs ConsumerSettings) {
+func (k *GoKafka) Consumer(topic string, fn ConsumerFunc) {
+	go func(topic string) {
+
+		kcs := &KafkaConsumerSettings{
+			Topic:           topic,
+			AutoOffsetReset: "earliest",
+			Retries:         5,
+		}
+
+		kc := &kafka.ConfigMap{
+			"bootstrap.servers":             k.server,
+			"group.id":                      k.groupId,
+			"auto.offset.reset":             kcs.AutoOffsetReset,
+			"partition.assignment.strategy": "cooperative-sticky",
+			"enable.auto.commit":            false,
+		}
+
+		if len(k.securityprotocol) > 0 {
+			kc.SetKey("security.protocol", k.securityprotocol)
+		}
+
+		if len(k.saslmechanism) > 0 {
+			kc.SetKey("sasl.mechanism", k.saslmechanism)
+		}
+
+		if len(k.saslusername) > 0 {
+			kc.SetKey("sasl.username", k.saslusername)
+		}
+
+		if len(k.saslpassword) > 0 {
+			kc.SetKey("sasl.password", k.saslpassword)
+		}
+
+		fmt.Fprintf(os.Stdout,
+			"%% Start consumer %s \n",
+			k.groupId)
+
+		consumer, err := kafka.NewConsumer(kc)
+		if err != nil {
+			log.Fatalln(err.Error())
+			panic(err)
+		}
+
+		err = consumer.SubscribeTopics([]string{kcs.Topic}, rebalanceCallback)
+		if err != nil {
+			log.Fatalln(err.Error())
+			panic(err)
+		}
+
+		for {
+			msg, err := consumer.ReadMessage(-1)
+
+			ctx := context.Background()
+			transaction := &GfSpan{}
+			if k.nrapp != nil {
+				ctx, transaction = k.nrapp.StartTransaction(ctx, "kafka/consumer")
+			}
+
+			if err != nil {
+				log.Println(err.Error())
+				continue
+			}
+
+			correlation := uuid.New()
+			for _, v := range msg.Headers {
+				if v.Key == XCORRELATIONID && len(v.Value) > 0 {
+					if id, err := uuid.Parse(string(v.Value)); err == nil {
+						correlation = id
+					}
+					break
+				}
+			}
+
+			tm := k.monitoring.Start(correlation, k.groupId, TracingTypeConsumer)
+			kafkaCallFnWithResilence(ctx, tm, msg, kc, *kcs, fn)
+			tm.AddStack(100, "COMMITING MSG")
+			consumer.CommitMessage(msg)
+			tm.AddStack(100, "COMMIT SUCCESSFULLY")
+
+			content := &map[string]interface{}{}
+			if err := json.Unmarshal(msg.Value, content); err == nil {
+				tm.AddContent(content)
+			} else {
+				tm.AddContent(msg.Value)
+			}
+
+			tm.End()
+
+			if k.nrapp != nil {
+				transaction.End()
+			}
+		}
+
+	}(topic)
+}
+
+func (k *GoKafka) ConsumerWithSettings(topic string, fn ConsumerFunc, cs ConsumerSettings) {
 	go func(topic string) {
 
 		kcs := &KafkaConsumerSettings{
