@@ -74,6 +74,11 @@ func recover_all() {
 }
 
 type (
+	ConsumerSettings struct {
+		AutoOffsetReset string
+		Retries         int
+	}
+
 	ConsumerMultiRoutineSettings struct {
 		Routines          int
 		AutoOffsetReset   string
@@ -189,13 +194,13 @@ func (k *GoKafka) ConsumerMultiRoutine(
 	}(topic)
 }
 
-func (k *GoKafka) Consumer(topic string, fn ConsumerFunc) {
+func (k *GoKafka) Consumer(topic string, fn ConsumerFunc, cs ConsumerSettings) {
 	go func(topic string) {
 
 		kcs := &KafkaConsumerSettings{
 			Topic:           topic,
-			AutoOffsetReset: "earliest",
-			Retries:         5,
+			AutoOffsetReset: cs.AutoOffsetReset,
+			Retries:         uint16(cs.Retries),
 		}
 
 		kc := &kafka.ConfigMap{
