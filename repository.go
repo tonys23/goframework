@@ -891,6 +891,15 @@ func (r *MongoDbRepository[T]) Aggregate(ctx context.Context, pipeline []interfa
 	return r.collection.Aggregate(ctx, filter)
 }
 
+func (r *MongoDbRepository[T]) DefaultAggregate(ctx context.Context, filter bson.A) (*mongo.Cursor, error) {
+	if os.Getenv("env") == "local" {
+		_, obj, err := bson.MarshalValueWithRegistry(MongoRegistry, filter)
+		fmt.Println(bson.Raw(obj), err)
+	}
+
+	return r.collection.Aggregate(ctx, filter)
+}
+
 func (r *MongoDbRepository[T]) Count(ctx context.Context,
 	filter map[string]interface{}, optsFind ...*options.CountOptions) int64 {
 	filterAggregator := make(map[string][]interface{})
