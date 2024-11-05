@@ -3,6 +3,7 @@ package goframework
 import (
 	"context"
 
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -40,6 +41,8 @@ type IRepository[T interface{}] interface {
 		filter map[string]interface{}) error
 	Aggregate(ctx context.Context,
 		pipeline []interface{}) (*mongo.Cursor, error)
+	DefaultAggregate(ctx context.Context,
+		filter bson.A) (*mongo.Cursor, error)
 	Count(ctx context.Context,
 		filter map[string]interface{},
 		optsFind ...*options.CountOptions) int64
