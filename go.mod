@@ -1,4 +1,4 @@
-module github.com/thiagotilid/goframework
+module travel/internal/goframework
 
 go 1.19
 
